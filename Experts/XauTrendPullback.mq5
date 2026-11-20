@@ -12,6 +12,8 @@
 
 input group "Risk"
 input double InpRiskPercent     = 1.0;   // Risk per trade (% of equity)
+input bool   InpAllowMinLot     = true;  // Use broker minimum lot when risk-based size is smaller
+input double InpMaxRiskPercent  = 10.0;  // Hard cap on risk when forced to minimum lot (% of equity)
 input double InpRewardRisk      = 2.0;   // Take profit in R multiples
 input int    InpMaxTradesPerDay = 2;     // Max new trades per day
 input double InpMaxDailyLossPct = 3.0;   // Stop trading today after this loss (% of balance)
@@ -76,7 +78,8 @@ int OnInit()
       Print("XauTrendPullback: attach to XAUUSD/GOLD only (symbol is ", _Symbol, ")");
       return INIT_PARAMETERS_INCORRECT;
      }
-   if(InpRiskPercent <= 0 || InpRewardRisk <= 0 || InpFibShallow >= InpFibDeep)
+   if(InpRiskPercent <= 0 || InpRewardRisk <= 0 || InpFibShallow >= InpFibDeep ||
+      InpMaxRiskPercent < InpRiskPercent)
       return INIT_PARAMETERS_INCORRECT;
 
    hFast = iMA(_Symbol, InpTrendTF, InpFastEMA, 0, MODE_EMA, PRICE_CLOSE);
@@ -267,11 +270,16 @@ double LotsForRisk(const double riskDistance, const ENUM_ORDER_TYPE type, const 
    if(tickValue <= 0 || tickSize <= 0 || step <= 0 || riskDistance <= 0)
       return 0;
 
-   double riskMoney  = AccountInfoDouble(ACCOUNT_EQUITY) * InpRiskPercent / 100.0;
+   double equity     = AccountInfoDouble(ACCOUNT_EQUITY);
+   double riskMoney  = equity * InpRiskPercent / 100.0;
    double lossPerLot = riskDistance / tickSize * tickValue;
    double lots = MathFloor(riskMoney / lossPerLot / step) * step;
-   // Never round up to the minimum lot: that would exceed the risk limit.
-   if(lots < minLot) return 0;
+   if(lots < minLot)
+     {
+      if(!InpAllowMinLot || minLot * lossPerLot > equity * InpMaxRiskPercent / 100.0)
+         return 0;
+      lots = minLot;
+     }
    lots = MathMin(lots, maxLot);
 
    double margin;
@@ -371,7 +379,7 @@ void Evaluate()
 
    ENUM_ORDER_TYPE type = bias > 0 ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
    double lots = LotsForRisk(risk, type, entry);
-   if(lots <= 0)                { Show(status + "\nLot size below broker minimum for this risk - skipped"); return; }
+   if(lots <= 0)                { Show(status + "\nMinimum lot exceeds risk cap - skipped"); return; }
 
    bool ok = bias > 0 ? trade.Buy(lots, _Symbol, 0, sl, tp, "XTP buy")
                       : trade.Sell(lots, _Symbol, 0, sl, tp, "XTP sell");

@@ -20,7 +20,8 @@ Setiap peraturan ditulis dalam kod, jadi keputusan EA boleh diulang dan diuji da
 
 | Peraturan | Default |
 |---|---|
-| Risiko setiap trade | 1% ekuiti (saiz lot dikira automatik; tak pernah dibundarkan ke atas) |
+| Risiko setiap trade | 1% ekuiti (saiz lot dikira automatik) |
+| Akaun kecil | Kalau lot 1% < lot minimum (0.01), EA guna 0.01 selagi rugi pada SL ≤ 10% ekuiti; kalau lebih, trade dilangkau |
 | Maks trade sehari | 2 |
 | Had rugi harian | 3% baki (dikira dari trade yang dah ditutup) |
 | Satu posisi pada satu masa | Ya |
