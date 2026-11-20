@@ -74,6 +74,8 @@ datetime lastTriggerBar = 0;
 string   lastReason = "";      // why the most recent trade was taken
 ulong    trackedTicket = 0;
 double   peakPips = 0;
+string   tallyNames[];         // outcome of each M15 evaluation, printed on deinit
+int      tallyCounts[];
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -96,6 +98,11 @@ int OnInit()
    trade.SetExpertMagicNumber(InpMagic);
    trade.SetTypeFillingBySymbol(_Symbol);
    trade.SetDeviationInPoints(30);
+   PrintFormat("XTP spec: digits %d point %g contract %g minLot %g step %g tickValue %g spread %d stopsLevel %d",
+               (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS), SymbolInfoDouble(_Symbol, SYMBOL_POINT),
+               SymbolInfoDouble(_Symbol, SYMBOL_TRADE_CONTRACT_SIZE), SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN),
+               SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP), SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE),
+               (int)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD), (int)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL));
    return INIT_SUCCEEDED;
   }
 
@@ -107,6 +114,8 @@ void OnDeinit(const int reason)
    if(hATR  != INVALID_HANDLE) IndicatorRelease(hATR);
    ObjectsDeleteAll(0, OBJ_PREFIX);
    Comment("");
+   for(int i = 0; i < ArraySize(tallyNames); i++)
+      PrintFormat("XTP outcome: %-45s %d", tallyNames[i], tallyCounts[i]);
   }
 
 //+------------------------------------------------------------------+
@@ -331,7 +340,7 @@ void Evaluate()
 
    long spread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
    if(spread > InpMaxSpreadPoints)
-     { Show(status + StringFormat("\nSpread %d too wide", (int)spread)); return; }
+     { Show(status + StringFormat("\nSpread %d too wide", (int)spread) + "\nSpread too wide"); return; }
 
    double o  = iOpen(_Symbol, InpTriggerTF, 1);
    double h  = iHigh(_Symbol, InpTriggerTF, 1);
@@ -495,8 +504,27 @@ void ManagePositions()
   }
 
 //+------------------------------------------------------------------+
+void Tally(const string reason)
+  {
+   int n = ArraySize(tallyNames);
+   for(int i = 0; i < n; i++)
+      if(tallyNames[i] == reason) { tallyCounts[i]++; return; }
+   ArrayResize(tallyNames, n + 1);
+   ArrayResize(tallyCounts, n + 1);
+   tallyNames[n] = reason;
+   tallyCounts[n] = 1;
+  }
+
 void Show(const string text)
   {
+   int cut = StringFind(text, "\n");
+   string last = text;
+   while(cut >= 0)
+     {
+      last = StringSubstr(last, cut + 1);
+      cut = StringFind(last, "\n");
+     }
+   Tally(last);
    if(InpDrawMap) Comment(text);
   }
 
