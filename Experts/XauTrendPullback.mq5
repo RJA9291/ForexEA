@@ -16,7 +16,7 @@ input bool   InpAllowMinLot     = true;  // Use broker minimum lot when risk-bas
 input double InpMaxRiskPercent  = 10.0;  // Hard cap on risk when forced to minimum lot (% of equity)
 input int    InpMaxTradesPerDay = 2;     // Max new trades per day
 input double InpMaxDailyLossPct = 3.0;   // Stop trading today after this loss (% of balance)
-input int    InpMaxSpreadPoints = 60;    // Skip entries when spread is wider (points)
+input int    InpMaxSpreadPoints = 100;   // Skip entries when spread is wider (points; InstaForex gold is ~80)
 
 input group "Trend filter"
 input ENUM_TIMEFRAMES InpTrendTF = PERIOD_H4;

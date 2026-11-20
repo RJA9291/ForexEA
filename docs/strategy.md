@@ -39,7 +39,7 @@ Sebab signal hilang kalau EA dimulakan semula semasa trade masih terbuka.
 | Maks trade sehari | 2 |
 | Had rugi harian | 3% baki (dikira dari trade yang dah ditutup) |
 | Satu posisi pada satu masa | Ya |
-| Spread maksimum | 60 point |
+| Spread maksimum | 100 point (spread gold InstaForex ~80) |
 | Sesi | 08:00–20:00 waktu server broker |
 | Breakeven / kunci untung | Ikut checkpoint TP1–TP3 di atas |
 | Trailing stop | Off (boleh hidupkan selepas TP3) |
