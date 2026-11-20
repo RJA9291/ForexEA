@@ -11,10 +11,24 @@ Setiap peraturan ditulis dalam kod, jadi keputusan EA boleh diulang dan diuji da
    - Selepas swing tu, harga belum buat high/low baru dan belum pecah titik asal impulse.
 3. **Zon pullback**: retracement Fibonacci 38.2%–61.8% dari impulse tu. Dalam istilah Elliott, ini zon entry gelombang 2 atau 4.
 4. **Trigger M15**: candle M15 terakhir menyentuh zon dan tutup sebagai candle rejection, iaitu wick ≥ body atau candle engulfing ke arah trend.
-5. **Entry**: market order.
+5. **Entry**: satu market order.
    - SL di luar zon atau di luar wick candle, ditambah 0.2 × ATR.
-   - TP pada 2R.
+   - TP sebenar order = **Final TP pada 4R**.
    - Trade dibatalkan kalau SL lebih lebar dari 2 × ATR.
+
+## Checkpoint TP (satu order)
+
+R = jarak entry ke SL asal. Bila harga terbaik (peak) sampai checkpoint, SL dikunci dan tak pernah diundur:
+
+| Checkpoint | Paras | Tindakan |
+|---|---|---|
+| TP1 | 1R | SL ke breakeven (+1 pip) |
+| TP2 | 2R | SL dikunci di TP1 |
+| TP3 | 3R | SL dikunci di TP2 (pilihan: trailing ATR selepas ini) |
+| Final TP | 4R | Order ditutup oleh broker |
+
+Chart tunjuk status live: arah, tahap checkpoint, pip berjalan dan pip tertinggi (1 pip = $0.10), entry/SL/TP, dan sebab signal.
+Sebab signal hilang kalau EA dimulakan semula semasa trade masih terbuka.
 
 ## Pengurusan risiko
 
@@ -27,8 +41,8 @@ Setiap peraturan ditulis dalam kod, jadi keputusan EA boleh diulang dan diuji da
 | Satu posisi pada satu masa | Ya |
 | Spread maksimum | 60 point |
 | Sesi | 08:00–20:00 waktu server broker |
-| Breakeven | Pada +1R |
-| Trailing stop | 1 × ATR selepas breakeven |
+| Breakeven / kunci untung | Ikut checkpoint TP1–TP3 di atas |
+| Trailing stop | Off (boleh hidupkan selepas TP3) |
 
 Semua nilai di atas ialah input EA dan boleh diubah.
 

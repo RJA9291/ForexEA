@@ -14,7 +14,6 @@ input group "Risk"
 input double InpRiskPercent     = 1.0;   // Risk per trade (% of equity)
 input bool   InpAllowMinLot     = true;  // Use broker minimum lot when risk-based size is smaller
 input double InpMaxRiskPercent  = 10.0;  // Hard cap on risk when forced to minimum lot (% of equity)
-input double InpRewardRisk      = 2.0;   // Take profit in R multiples
 input int    InpMaxTradesPerDay = 2;     // Max new trades per day
 input double InpMaxDailyLossPct = 3.0;   // Stop trading today after this loss (% of balance)
 input int    InpMaxSpreadPoints = 60;    // Skip entries when spread is wider (points)
@@ -40,9 +39,12 @@ input double InpSLBufferATR     = 0.2;   // Extra SL distance beyond the zone (A
 input double InpMinSLATR        = 0.3;   // Minimum SL distance (ATR)
 input double InpMaxSLATR        = 2.0;   // Skip trade if SL would be wider (ATR)
 
-input group "Trade management"
-input double InpBreakevenR      = 1.0;   // Move SL to breakeven at this R (0 = off)
-input double InpTrailATR        = 1.0;   // Trail distance after breakeven (ATR, 0 = off)
+input group "Checkpoint targets (one order, SL ratchets at each checkpoint)"
+input double InpTP1R            = 1.0;   // TP1: SL moves to breakeven
+input double InpTP2R            = 2.0;   // TP2: SL locks at TP1
+input double InpTP3R            = 3.0;   // TP3: SL locks at TP2
+input double InpFinalTPR        = 4.0;   // Final TP: the order's real take profit
+input double InpTrailATR        = 0.0;   // Trail distance after TP3 (ATR, 0 = off)
 
 input group "Session (broker server time)"
 input int    InpStartHour       = 8;
@@ -69,6 +71,9 @@ int      hFast = INVALID_HANDLE;
 int      hSlow = INVALID_HANDLE;
 int      hATR  = INVALID_HANDLE;
 datetime lastTriggerBar = 0;
+string   lastReason = "";      // why the most recent trade was taken
+ulong    trackedTicket = 0;
+double   peakPips = 0;
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -78,8 +83,8 @@ int OnInit()
       Print("XauTrendPullback: attach to XAUUSD/GOLD only (symbol is ", _Symbol, ")");
       return INIT_PARAMETERS_INCORRECT;
      }
-   if(InpRiskPercent <= 0 || InpRewardRisk <= 0 || InpFibShallow >= InpFibDeep ||
-      InpMaxRiskPercent < InpRiskPercent)
+   if(InpRiskPercent <= 0 || InpFibShallow >= InpFibDeep || InpMaxRiskPercent < InpRiskPercent ||
+      !(0 < InpTP1R && InpTP1R < InpTP2R && InpTP2R < InpTP3R && InpTP3R < InpFinalTPR))
       return INIT_PARAMETERS_INCORRECT;
 
    hFast = iMA(_Symbol, InpTrendTF, InpFastEMA, 0, MODE_EMA, PRICE_CLOSE);
@@ -315,7 +320,7 @@ void Evaluate()
                           leg.start, leg.end, MathMin(zoneNear, zoneFar), MathMax(zoneNear, zoneFar));
 
    if(!SessionOpen())           { Show(status + "\nOutside session"); return; }
-   if(HasOpenPosition())        { Show(status + "\nPosition open - managing"); return; }
+   if(HasOpenPosition())        return;   // ManagePositions owns the chart status while a trade runs
 
    int entries; double closedPnl;
    DailyStats(entries, closedPnl);
@@ -340,6 +345,7 @@ void Evaluate()
 
    bool triggered = false;
    double entry = 0, sl = 0;
+   string pattern = "";
    if(bias > 0)
      {
       double lowerWick = MathMin(o, c) - l;
@@ -347,6 +353,7 @@ void Evaluate()
       bool rejection = c > o && lowerWick >= body * InpWickBodyRatio;
       bool engulfing = c > o && pc < po && c > po && o <= pc;
       triggered = touched && (rejection || engulfing);
+      pattern = engulfing ? "Bullish engulfing" : "Bullish rejection wick";
       entry = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       sl    = MathMin(l, zoneFar) - InpSLBufferATR * atr;
      }
@@ -357,6 +364,7 @@ void Evaluate()
       bool rejection = c < o && upperWick >= body * InpWickBodyRatio;
       bool engulfing = c < o && pc > po && c < po && o >= pc;
       triggered = touched && (rejection || engulfing);
+      pattern = engulfing ? "Bearish engulfing" : "Bearish rejection wick";
       entry = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       sl    = MathMax(h, zoneFar) + InpSLBufferATR * atr;
      }
@@ -372,7 +380,7 @@ void Evaluate()
    if(risk > InpMaxSLATR * atr) { Show(status + "\nSL too wide - skipped"); return; }
    if(risk <= stopsLevel)       { Show(status + "\nSL inside broker stop level - skipped"); return; }
 
-   double tp = entry + bias * risk * InpRewardRisk;
+   double tp = entry + bias * risk * InpFinalTPR;
    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    sl = NormalizeDouble(sl, digits);
    tp = NormalizeDouble(tp, digits);
@@ -383,22 +391,31 @@ void Evaluate()
 
    bool ok = bias > 0 ? trade.Buy(lots, _Symbol, 0, sl, tp, "XTP buy")
                       : trade.Sell(lots, _Symbol, 0, sl, tp, "XTP sell");
-   PrintFormat("XauTrendPullback %s %.2f lots @%.2f SL %.2f TP %.2f -> %s (%d)",
+   if(ok)
+      lastReason = StringFormat("- H4 trend %s (EMA%d/%d)\n- H1 impulse %.2f -> %.2f, pullback into Fib %.1f-%.1f%%\n- M15 %s",
+                                bias > 0 ? "up" : "down", InpFastEMA, InpSlowEMA, leg.start, leg.end,
+                                InpFibShallow * 100, InpFibDeep * 100, pattern);
+   PrintFormat("XauTrendPullback %s %.2f lots @%.2f SL %.2f TP %.2f -> %s (%d) | %s",
                bias > 0 ? "BUY" : "SELL", lots, entry, sl, tp,
-               ok ? "sent" : "failed", trade.ResultRetcode());
-   Show(status + (ok ? "\nTrade opened" : "\nOrder failed - see Experts log"));
+               ok ? "sent" : "failed", trade.ResultRetcode(), pattern);
+   if(!ok) Show(status + "\nOrder failed - see Experts log");
   }
 
 //+------------------------------------------------------------------+
+double PipSize()
+  {
+   // Gold quotes: 1 pip = 0.10, matching common signal apps.
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   return SymbolInfoDouble(_Symbol, SYMBOL_POINT) * (digits >= 3 ? 100 : 10);
+  }
+
 void ManagePositions()
   {
-   if(InpBreakevenR <= 0 && InpTrailATR <= 0)
-      return;
    double atr = BufferValue(hATR, 1);
-   if(atr == EMPTY_VALUE || atr <= 0)
-      return;
    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   double pip = PipSize();
+   bool found = false;
 
    for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
@@ -414,29 +431,67 @@ void ManagePositions()
       int    dir   = (type == POSITION_TYPE_BUY) ? 1 : -1;
       double price = dir > 0 ? SymbolInfoDouble(_Symbol, SYMBOL_BID)
                              : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      if(sl == 0) continue;
+      if(sl == 0 || tp == 0) continue;
+      found = true;
 
-      bool atBreakeven = (dir > 0) ? sl >= open : sl <= open;
-      double newSL = sl;
+      // TP is never modified, so the original risk is recoverable from it.
+      double risk = MathAbs(tp - open) / InpFinalTPR;
+      double tp1 = open + dir * risk * InpTP1R;
+      double tp2 = open + dir * risk * InpTP2R;
+      double tp3 = open + dir * risk * InpTP3R;
 
-      if(!atBreakeven && InpBreakevenR > 0)
+      double runPips = (price - open) * dir / pip;
+      if(ticket != trackedTicket)
         {
-         double initRisk = MathAbs(open - sl);
-         if((price - open) * dir >= initRisk * InpBreakevenR)
-            newSL = open + dir * 10 * point;
+         trackedTicket = ticket;
+         datetime opened = (datetime)PositionGetInteger(POSITION_TIME);
+         int bars = Bars(_Symbol, PERIOD_M1, opened, TimeCurrent());
+         peakPips = 0;
+         if(bars > 0)
+           {
+            double extreme = dir > 0 ? iHigh(_Symbol, PERIOD_M1, iHighest(_Symbol, PERIOD_M1, MODE_HIGH, bars, 0))
+                                     : iLow(_Symbol, PERIOD_M1, iLowest(_Symbol, PERIOD_M1, MODE_LOW, bars, 0));
+            peakPips = MathMax(0, (extreme - open) * dir / pip);
+           }
         }
-      else if(atBreakeven && InpTrailATR > 0)
+      peakPips = MathMax(peakPips, runPips);
+
+      // Checkpoints are judged on the best price reached, so a pullback
+      // after touching a checkpoint still keeps the locked stop.
+      double best = open + dir * peakPips * pip;
+      double lock = sl;
+      string stage = "Running";
+      if((best - tp3) * dir >= 0)      { lock = tp2;                     stage = "TP3 HIT - SL locked at TP2"; }
+      else if((best - tp2) * dir >= 0) { lock = tp1;                     stage = "TP2 HIT - SL locked at TP1"; }
+      else if((best - tp1) * dir >= 0) { lock = open + dir * 10 * point; stage = "TP1 HIT - BREAK EVEN SET"; }
+
+      if(InpTrailATR > 0 && atr != EMPTY_VALUE && (best - tp3) * dir >= 0)
         {
          double trail = price - dir * InpTrailATR * atr;
          // Only step the stop in meaningful increments to avoid modify spam.
-         if((trail - sl) * dir > 0.1 * atr)
-            newSL = trail;
+         if((trail - lock) * dir > 0.1 * atr)
+            lock = trail;
         }
 
-      newSL = NormalizeDouble(newSL, digits);
-      if(newSL != sl && (newSL - sl) * dir > 0)
-         trade.PositionModify(ticket, newSL, tp);
+      lock = NormalizeDouble(lock, digits);
+      if((lock - sl) * dir > point && (price - lock) * dir > 0)
+         if(trade.PositionModify(ticket, lock, tp))
+            sl = lock;
+
+      if(InpDrawMap)
+         Comment(StringFormat("XAUUSD %s  |  %s\nRUNNING %+.1f pip   (peak %+.1f)\n"
+                              "ENTRY %.2f   SL %.2f\nTP1 %.2f %s   TP2 %.2f %s   TP3 %.2f %s   FINAL %.2f\n"
+                              "SIGNAL REASON\n%s",
+                              dir > 0 ? "BUY" : "SELL", stage, runPips, peakPips,
+                              open, sl,
+                              tp1, (best - tp1) * dir >= 0 ? "[hit]" : "",
+                              tp2, (best - tp2) * dir >= 0 ? "[hit]" : "",
+                              tp3, (best - tp3) * dir >= 0 ? "[hit]" : "", tp,
+                              lastReason == "" ? "(EA restarted - reason not kept)" : lastReason));
      }
+
+   if(!found)
+      trackedTicket = 0;
   }
 
 //+------------------------------------------------------------------+
