@@ -218,13 +218,16 @@ void FetchNewsRisk()
      }
   }
 
+bool regimePushed = false;
+
 void UpdateRegime()
   {
    regimeNow = regime.Classify();
    string resp;
    // PATCH, not upsert: an insert attempt would fail the NOT NULL bid/ask columns.
-   Rest("PATCH", "/rest/v1/market?symbol=eq." + _Symbol,
-        "{\"regime\":" + JStr(regimeNow) + ",\"regime_detail\":" + regime.DetailJson() + "}", "", resp);
+   int code = Rest("PATCH", "/rest/v1/market?symbol=eq." + _Symbol,
+                   "{\"regime\":" + JStr(regimeNow) + ",\"regime_detail\":" + regime.DetailJson() + "}", "", resp);
+   regimePushed = code >= 200 && code < 300;
   }
 
 void FetchFundamental()
@@ -241,9 +244,11 @@ void FetchFundamental()
 
 void CheckNewsWindow()
   {
+   // Local clock, not server time: TimeCurrent() stops at the last tick over weekends.
    MqlDateTime h;
-   TimeToStruct(TimeCurrent(), h);
+   TimeToStruct(TimeLocal(), h);
    if(h.hour != newsFetchHour) { newsFetchHour = h.hour; FetchNewsRisk(); UpdateRegime(); }
+   else if(!regimePushed) UpdateRegime();
 
    bool was = inNewsWindow;
    inNewsWindow = false;
