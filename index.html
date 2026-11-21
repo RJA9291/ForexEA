@@ -119,7 +119,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-history" class="view" hidden></section>
   <section id="view-news" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v5</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v6</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
@@ -143,7 +143,8 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
        entry:2639.50, sl:2639.50, tp1:2651.95, tp2:2660.25, risk_pips:83, lots:0.01, risk_usd:41.5, running_pips:89.2, peak_pips:121.0,
        reasons:["Julat Asia 2631.70-2639.00 (0.28%) dalam had","Breakout julat 03:00-08:00 server semasa London dibuka","Risiko 83 pip, BE pada 1.5R, sasaran 2.5R"],
        regime:"MIXED", stats:{trades:543,win_rate:47.5,max_drawdown_pct:23.7,regime:{name:"MIXED",trades:178,win_rate:50.6,pf:1.26,pf_2024_25:1.07,pf_2026:1.47,verdict:"PROFITABLE_BOTH"},by_year:[{year:2024,win_rate:48.2,pf:1.12},{year:2025,win_rate:44.8,pf:1.15},{year:2026,win_rate:49.7,pf:1.46}]},
-       news_risk:"MEDIUM"},
+       news_risk:"MEDIUM",
+       critique:{caution:"MEDIUM",summary:"Contoh: breakout berlaku sejurus sebelum data PMI, dan harga dah dekat paras rintangan minggu lalu.",against_buy:["Contoh: harga dekat high mingguan 2662, ruang ke TP terhad.","Contoh: RSI H1 dah overbought."],against_sell:["Contoh: trend H4 masih naik."]}},
       {id:2, created_at:new Date(Date.now()-27*3600e3).toISOString(), status:"CLOSED_SL", side:"SELL", entry:2655.10, result_pips:-92},
       {id:1, created_at:new Date(Date.now()-51*3600e3).toISOString(), status:"CLOSED_TP", side:"BUY", entry:2611.40, result_pips:215}
     ],
@@ -187,6 +188,21 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       '<div class="stats"><div class="stat"><span class="label">Semua</span><b class="num">'+esc(st.win_rate)+'%</b><small class="muted">menang</small></div>'+years+'</div>'+
       regimeStats(st.regime)+
       '<p class="small muted" style="margin:0">Drawdown maksimum '+esc(st.max_drawdown_pct)+'% pada risiko 1%. Kebanyakan untung datang dari 2026; 2024 dan 2025 lebih nipis.</p></div>';
+  }
+
+  var CAUTION={LOW:["Amaran rendah",""],MEDIUM:["Amaran sederhana","warn"],HIGH:["Amaran tinggi","sell"]};
+  function critiqueBox(c, side){
+    if(!c) return "";
+    var k=CAUTION[c.caution]||[c.caution,""];
+    function list(title, items, dim){
+      if(!items||!items.length) return "";
+      return '<div style="opacity:'+(dim?0.55:1)+'"><span class="label">'+title+'</span><ul style="margin:4px 0 0;padding-left:18px">'+items.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+'</ul></div>';
+    }
+    // Once a side has filled, the other side's objections no longer apply, so they are dimmed.
+    return '<div class="reasons" style="border-left-color:var(--sell)"><div class="row"><span class="label">Devil\'s Advocate</span><span class="chip '+k[1]+'">'+esc(k[0])+'</span></div>'+
+      '<p class="small" style="margin:0">'+esc(c.summary)+'</p>'+
+      list("Kenapa BUY mungkin gagal", c.against_buy, side==="SELL")+
+      list("Kenapa SELL mungkin gagal", c.against_sell, side==="BUY")+'</div>';
   }
 
   var REGIME={TREND_UP:"Trend naik",TREND_DOWN:"Trend turun",RANGING:"Sideways",MIXED:"Bercampur",HIGH_VOL:"Volatiliti tinggi"};
@@ -243,6 +259,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     if(s.escape&&s.escape.advice) html+='<div class="escape"><b>Amaran escape.</b> '+esc(s.escape.advice)+'</div>';
     if(s.escape&&s.escape.note) html+='<p class="small muted" style="margin:0">'+esc(s.escape.note)+'</p>';
     if(s.reasons&&s.reasons.length) html+='<div class="reasons"><span class="label">Sebab signal</span><ul>'+s.reasons.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+'</ul></div>';
+    html+=critiqueBox(s.critique, s.side);
     html+='</div>';
     html+=statsBlock(s.stats);
     el.innerHTML=nb+html;

@@ -87,3 +87,7 @@ create table if not exists public.fundamental_briefs (
 alter table public.fundamental_briefs enable row level security;
 drop policy if exists "read fundamental" on public.fundamental_briefs;
 create policy "read fundamental" on public.fundamental_briefs for select using (true);
+
+-- Devil's Advocate review of each day's setup (added 2026-11-22). The engine never writes this column,
+-- so its PATCH updates leave the review in place.
+alter table public.signals add column if not exists critique jsonb;   -- {caution, against_buy[], against_sell[], summary, written_at}
