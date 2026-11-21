@@ -74,3 +74,26 @@ Skrip: `tester/run_scalper_variants.ps1`. Nota: Strategy Tester guna semula inpu
 - **Tiada variasi yang untung.** Penapis v2 kurangkan kerugian hanya dengan mengurangkan bilangan trade, bukan dengan memilih trade yang lebih baik.
 - Entry "pullback EMA20 + flip Heikin Ashi" tiada kelebihan pada kos InstaForex (spread 8 pip). Menambah lebih banyak penapis pada entry ini berisiko curve-fitting.
 - Ujian out-of-sample tidak dijalankan kerana tiada variasi yang layak.
+
+## 2026-11-21 — XauLondonBreakout v1, XAUUSD M5
+
+Peraturan dari [mql5.com/en/blogs/post/777540](https://www.mql5.com/en/blogs/post/777540): julat Asia 03:00–08:00 server, buy/sell stop OCO pada 08:00 (+5 pip), SL hujung bertentangan (maks 0.6% harga), TP 2.5R, BE pada 1.5R, tutup 21:00, satu trade sehari, langkau julat <0.30% atau >1.60%.
+Tempoh 2024-01-02 → 2026-11-20. Model: Every tick (dijana dari M1). Spread 80 point. Kill switch dimatikan untuk ukuran penuh.
+
+| Deposit | Trade | Keputusan |
+|---|---|---|
+| $100 | 0 | 551 hari dilangkau: rugi 0.01 lot pada SL > 10% akaun (kontrak 500 auns) |
+| $10,000 (risiko 1%) | 543 | Baki akhir **$16,856.98 (+68.6%)**, max drawdown (baki tertutup) **23.7%** |
+
+| Tahun | Trade | Win rate | Net | PF |
+|---|---|---|---|---|
+| 2024 | 166 | 48.2% | +$642.00 | 1.12 |
+| 2025 | 194 | 44.8% | +$1,385.48 | 1.15 |
+| 2026 (hingga 20 Nov) | 183 | 49.7% | +$4,829.50 | 1.46 |
+
+Hari dilangkau: julat sempit 69, julat lebar 51, harga terlalu dekat hujung julat (dalam stops level broker) 57, harga dah keluar julat pada 08:00 18.
+
+### Kesimpulan
+- Untung dalam ketiga-tiga tahun, tapi 2024–2025 nipis (PF 1.12–1.15); sebahagian besar untung datang dari 2026. Ini selari dengan kajian lain yang dapati strategi ini tak stabil merentasi tempoh.
+- Drawdown 23.7% pada risiko 1% — risiko 0.5% lebih munasabah untuk permulaan.
+- Belum diuji dengan real ticks (data tick InstaForex gagal dimuat turun) dan tanpa slippage sebenar semasa breakout.
