@@ -73,8 +73,63 @@ int OnInit()
    return INIT_SUCCEEDED;
   }
 
+//+------------------------------------------------------------------+
+//| Per-year results from this EA's closed deals (for tester logs).  |
+//+------------------------------------------------------------------+
+void PrintStats()
+  {
+   if(!HistorySelect(0, TimeCurrent() + 60))
+      return;
+   int total = HistoryDealsTotal();
+   double net[], gross[], loss[];
+   int years[], trades[], wins[];
+   double all = 0;
+   for(int i = 0; i < total; i++)
+     {
+      ulong d = HistoryDealGetTicket(i);
+      if(d == 0 || (ulong)HistoryDealGetInteger(d, DEAL_MAGIC) != InpMagic) continue;
+      if(HistoryDealGetInteger(d, DEAL_ENTRY) == DEAL_ENTRY_IN) continue;
+      all += HistoryDealGetDouble(d, DEAL_PROFIT) + HistoryDealGetDouble(d, DEAL_SWAP) +
+             HistoryDealGetDouble(d, DEAL_COMMISSION);
+     }
+
+   double equity = AccountInfoDouble(ACCOUNT_BALANCE) - all;
+   double peak = equity, maxDD = 0;
+   for(int i = 0; i < total; i++)
+     {
+      ulong d = HistoryDealGetTicket(i);
+      if(d == 0 || (ulong)HistoryDealGetInteger(d, DEAL_MAGIC) != InpMagic) continue;
+      if(HistoryDealGetInteger(d, DEAL_ENTRY) == DEAL_ENTRY_IN) continue;
+      double p = HistoryDealGetDouble(d, DEAL_PROFIT) + HistoryDealGetDouble(d, DEAL_SWAP) +
+                 HistoryDealGetDouble(d, DEAL_COMMISSION);
+      MqlDateTime dt;
+      TimeToStruct((datetime)HistoryDealGetInteger(d, DEAL_TIME), dt);
+      int k = -1;
+      for(int j = 0; j < ArraySize(years); j++) if(years[j] == dt.year) k = j;
+      if(k < 0)
+        {
+         k = ArraySize(years);
+         ArrayResize(years, k + 1); ArrayResize(trades, k + 1); ArrayResize(wins, k + 1);
+         ArrayResize(net, k + 1); ArrayResize(gross, k + 1); ArrayResize(loss, k + 1);
+         years[k] = dt.year; trades[k] = 0; wins[k] = 0; net[k] = 0; gross[k] = 0; loss[k] = 0;
+        }
+      trades[k]++;
+      net[k] += p;
+      if(p > 0) { wins[k]++; gross[k] += p; } else loss[k] -= p;
+      equity += p;
+      peak = MathMax(peak, equity);
+      maxDD = MathMax(maxDD, (peak - equity) / peak);
+     }
+   for(int j = 0; j < ArraySize(years); j++)
+      PrintFormat("XLB year %d: trades %d, win %.1f%%, net %.2f, PF %.2f",
+                  years[j], trades[j], 100.0 * wins[j] / MathMax(1, trades[j]), net[j],
+                  loss[j] > 0 ? gross[j] / loss[j] : 0.0);
+   PrintFormat("XLB total: net %.2f, max closed-equity drawdown %.1f%%", all, 100.0 * maxDD);
+  }
+
 void OnDeinit(const int reason)
   {
+   PrintStats();
    Comment("");
    for(int i = 0; i < ArraySize(tallyNames); i++)
       PrintFormat("XLB outcome: %-40s %d", tallyNames[i], tallyCounts[i]);
@@ -246,6 +301,10 @@ void PlaceDayOrders()
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(ask >= buyAt || bid <= sellAt)
                                  { dayNote = "Price already outside range at 08:00"; Tally(dayNote); return; }
+   // Stop orders closer than the broker's stops level are rejected as invalid price.
+   double minGap = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   if(buyAt - ask <= minGap || bid - sellAt <= minGap)
+                                 { dayNote = "Price too close to range edge"; Tally(dayNote); return; }
 
    double lots = LotsForRisk(risk, ORDER_TYPE_BUY, buyAt);
    if(lots <= 0)                 { dayNote = "Minimum lot exceeds risk cap"; Tally(dayNote); return; }
