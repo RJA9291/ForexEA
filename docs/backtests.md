@@ -30,3 +30,29 @@ Butiran $10,000 (dikira dari log tester; untung kasar sebelum kos ialah $1,234.5
 - Daripada 21,000+ penilaian M15, kebanyakan berhenti di "tiada impulse sah" (14,690) — penapis struktur sangat ketat.
 
 Konfigurasi: `tester/backtest_1y.ini` ($100), `tester/backtest_1y_10k.ini` ($10,000).
+
+## 2026-11-21 — XauScalper v1, XAUUSD M5
+
+Tempoh: 2026-08-20 → 2026-11-20. Model: **Every tick (dijana dari M1)** — real ticks InstaForex gagal dimuat turun (server hantar data kosong, sambungan terputus selepas 2 jam).
+
+| Deposit | Trade | Keputusan |
+|---|---|---|
+| $100 | 0 | Tiada trade: 132 setup dilangkau (0.01 lot > 10% risiko), 269 SL > 60 pip |
+| $10,000 (risiko 1%) | 58 | Baki akhir **$8,120.20 (−18.8%)**. **Kill switch aktif 2026-10-14** (ekuiti −20% dari puncak $10,176.75); tiada trade selepas itu |
+
+Pecahan 58 trade ($10,000):
+
+| Keluar | Bilangan |
+|---|---|
+| Kalah penuh (SL asal) | 37 |
+| Time stop (rugi) | 1 |
+| Breakeven selepas TP1 | 13 |
+| Untung dikunci (TP2/TP3) | 5 |
+| Final TP (4R) | 2 |
+
+Jarak SL: min 33, median 50, max 60 pip. Spread 8 pip = ~16% daripada SL median.
+
+### Kesimpulan
+- Versi ini **rugi**: 38 kalah daripada 58 (66%), dan checkpoint tak cukup untuk menampung.
+- Peraturan escape berfungsi seperti direka: losing streak hentikan 81 penilaian, kill switch hentikan EA sebelum kerugian melebihi 20%.
+- Jangan jalankan versi ini di akaun sebenar. Perlu reka semula entry (contoh: penapis sesi London–NY sahaja, SL lebih ketat dengan broker spread rendah) dan uji semula.
