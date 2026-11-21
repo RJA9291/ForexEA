@@ -10,7 +10,7 @@
 #property version   "1.00"
 
 input group "Supabase (keep the service key out of the repo)"
-input string InpSupabaseUrl     = "";    // e.g. https://xxxx.supabase.co (add it under Tools > Options > Expert Advisors > Allow WebRequest)
+input string InpSupabaseUrl     = "https://ukzbdszndqvgycsnjeof.supabase.co";   // also add under Tools > Options > Expert Advisors > Allow WebRequest
 input string InpServiceKey      = "";    // service_role key: paste here only, never commit
 input int    InpPriceSeconds    = 5;     // how often the live price is pushed
 
