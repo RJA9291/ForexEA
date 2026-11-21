@@ -10,6 +10,7 @@
 #property version   "1.00"
 
 #include <Trade/Trade.mqh>
+#include <XauRegime.mqh>
 
 input group "Risk"
 input double InpRiskPercent     = 1.0;   // Risk per trade (% of equity)
@@ -37,6 +38,7 @@ input bool   InpGoldOnly        = true;
 input bool   InpShowStatus      = true;
 
 CTrade   trade;
+CXauRegime regime;
 datetime setupDay = 0;      // day for which orders were already handled
 string   peakVar;
 bool     killSwitchLogged = false;
@@ -59,6 +61,8 @@ int OnInit()
    trade.SetExpertMagicNumber(InpMagic);
    trade.SetTypeFillingBySymbol(_Symbol);
    trade.SetDeviationInPoints(30);
+   if(!regime.Init(_Symbol))
+      return INIT_FAILED;
 
    // Equity peak survives restarts; delete this global variable (F3) to reset the kill switch.
    peakVar = StringFormat("XLB_peak_%I64u", InpMagic);
@@ -127,9 +131,75 @@ void PrintStats()
    PrintFormat("XLB total: net %.2f, max closed-equity drawdown %.1f%%", all, 100.0 * maxDD);
   }
 
+//+------------------------------------------------------------------+
+//| Results per regime, split 2024-2025 (in-sample) vs 2026+.        |
+//+------------------------------------------------------------------+
+struct RegStat
+  {
+   string            name;
+   int               n[2], w[2];
+   double            gp[2], gl[2];
+  };
+
+void PrintRegimeStats()
+  {
+   if(!HistorySelect(0, TimeCurrent() + 60))
+      return;
+   int total = HistoryDealsTotal();
+   long posIds[];
+   string posReg[];
+   RegStat st[];
+   for(int i = 0; i < total; i++)
+     {
+      ulong d = HistoryDealGetTicket(i);
+      if(d == 0 || (ulong)HistoryDealGetInteger(d, DEAL_MAGIC) != InpMagic) continue;
+      long pos = HistoryDealGetInteger(d, DEAL_POSITION_ID);
+      if(HistoryDealGetInteger(d, DEAL_ENTRY) == DEAL_ENTRY_IN)
+        {
+         string c = HistoryDealGetString(d, DEAL_COMMENT);
+         int sp = StringLen(c) - 1;
+         while(sp >= 0 && StringGetCharacter(c, sp) != ' ') sp--;
+         int k = ArraySize(posIds);
+         ArrayResize(posIds, k + 1); ArrayResize(posReg, k + 1);
+         posIds[k] = pos;
+         posReg[k] = sp >= 0 ? StringSubstr(c, sp + 1) : "UNKNOWN";
+         continue;
+        }
+      string reg = "UNKNOWN";
+      for(int k = 0; k < ArraySize(posIds); k++) if(posIds[k] == pos) { reg = posReg[k]; break; }
+      int r = -1;
+      for(int k = 0; k < ArraySize(st); k++) if(st[k].name == reg) { r = k; break; }
+      if(r < 0)
+        {
+         r = ArraySize(st);
+         ArrayResize(st, r + 1);
+         st[r].name = reg;
+         for(int p = 0; p < 2; p++) { st[r].n[p] = 0; st[r].w[p] = 0; st[r].gp[p] = 0; st[r].gl[p] = 0; }
+        }
+      MqlDateTime dt;
+      TimeToStruct((datetime)HistoryDealGetInteger(d, DEAL_TIME), dt);
+      int p = dt.year <= 2025 ? 0 : 1;
+      double pl = HistoryDealGetDouble(d, DEAL_PROFIT) + HistoryDealGetDouble(d, DEAL_SWAP) +
+                  HistoryDealGetDouble(d, DEAL_COMMISSION);
+      st[r].n[p]++;
+      if(pl > 0) { st[r].w[p]++; st[r].gp[p] += pl; } else st[r].gl[p] -= pl;
+     }
+   for(int r = 0; r < ArraySize(st); r++)
+     {
+      int n = st[r].n[0] + st[r].n[1], w = st[r].w[0] + st[r].w[1];
+      double gp = st[r].gp[0] + st[r].gp[1], gl = st[r].gl[0] + st[r].gl[1];
+      PrintFormat("XLB regime %-10s all: %3d trades win %5.1f%% net %9.2f PF %.2f | 2024-25: %3d win %5.1f%% PF %.2f | 2026: %3d win %5.1f%% PF %.2f",
+                  st[r].name, n, 100.0 * w / MathMax(1, n), gp - gl, gl > 0 ? gp / gl : 0.0,
+                  st[r].n[0], 100.0 * st[r].w[0] / MathMax(1, st[r].n[0]), st[r].gl[0] > 0 ? st[r].gp[0] / st[r].gl[0] : 0.0,
+                  st[r].n[1], 100.0 * st[r].w[1] / MathMax(1, st[r].n[1]), st[r].gl[1] > 0 ? st[r].gp[1] / st[r].gl[1] : 0.0);
+     }
+  }
+
 void OnDeinit(const int reason)
   {
    PrintStats();
+   PrintRegimeStats();
+   regime.Release();
    Comment("");
    for(int i = 0; i < ArraySize(tallyNames); i++)
       PrintFormat("XLB outcome: %-40s %d", tallyNames[i], tallyCounts[i]);
@@ -314,8 +384,11 @@ void PlaceDayOrders()
    double sellSL = NormalizeDouble(sellAt + risk, digits);
    double sellTP = NormalizeDouble(sellAt - risk * InpTPR, digits);
 
-   bool okBuy  = trade.BuyStop(lots, buyAt, _Symbol, buySL, buyTP, ORDER_TIME_GTC, 0, "XLB buy");
-   bool okSell = trade.SellStop(lots, sellAt, _Symbol, sellSL, sellTP, ORDER_TIME_GTC, 0, "XLB sell");
+   // The regime travels in the order comment so PrintStats can group results by it.
+   string reg = regime.Classify();
+   bool okBuy  = trade.BuyStop(lots, buyAt, _Symbol, buySL, buyTP, ORDER_TIME_GTC, 0, "XLB buy " + reg);
+   bool okSell = trade.SellStop(lots, sellAt, _Symbol, sellSL, sellTP, ORDER_TIME_GTC, 0, "XLB sell " + reg);
+   Tally("Regime " + reg);
    dayNote = StringFormat("Range %.2f-%.2f (%.2f%%) | BUY STOP %.2f / SELL STOP %.2f | %.2f lots, risk %.0f pip",
                           lo, hi, rangePct, buyAt, sellAt, lots, risk / pip);
    PrintFormat("XauLondonBreakout %s | buy %s sell %s", dayNote, okBuy ? "ok" : "failed", okSell ? "ok" : "failed");
