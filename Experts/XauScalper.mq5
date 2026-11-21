@@ -2,12 +2,14 @@
 //| XauScalper.mq5                                                   |
 //| XAUUSD scalper: M15 EMA bias -> M5 pullback to EMA20 ->          |
 //| Heikin Ashi flip trigger -> one order with checkpoint TPs.       |
+//| v2: ADX trend-strength filter, strong-HA trigger, London-NY      |
+//| overlap session, tighter SL.                                     |
 //| Escape rules: daily loss, losing streak, equity kill switch,     |
 //| time stop, spread/ATR-spike filters.                             |
 //+------------------------------------------------------------------+
 #property copyright "RJA9291"
 #property link      "https://github.com/RJA9291/ForexEA"
-#property version   "1.00"
+#property version   "2.00"
 
 #include <Trade/Trade.mqh>
 
@@ -28,16 +30,20 @@ input group "Bias"
 input ENUM_TIMEFRAMES InpBiasTF  = PERIOD_M15;
 input int    InpBiasFastEMA     = 50;
 input int    InpBiasSlowEMA     = 200;
+input bool   InpUseADX          = true;  // Require a trending market on the bias timeframe
+input int    InpADXPeriod       = 14;
+input double InpMinADX          = 22;
 
 input group "Entry"
 input ENUM_TIMEFRAMES InpEntryTF = PERIOD_M5;
 input int    InpPullbackEMA     = 20;
 input int    InpATRPeriod       = 14;
 input double InpTouchATR        = 0.3;   // Pullback must come within this many ATR of the EMA
-input int    InpSwingBars       = 5;     // SL goes beyond the extreme of this many bars
+input bool   InpRequireStrongHA = true;  // Trigger HA candle must have no wick against the trade
+input int    InpSwingBars       = 3;     // SL goes beyond the extreme of this many bars
 input double InpSLBufferATR     = 0.1;
 input double InpMinSLPips       = 20;    // 1 pip = 0.10 on gold
-input double InpMaxSLPips       = 60;
+input double InpMaxSLPips       = 45;
 input double InpATRSpikeMult    = 2.5;   // Skip when ATR exceeds its baseline by this multiple (news spikes)
 input int    InpATRBaseline     = 100;   // Bars used for the ATR baseline
 
@@ -49,8 +55,8 @@ input double InpFinalTPR        = 4.0;   // Final TP: the order's real take prof
 input int    InpTimeStopBars    = 12;    // Close if TP1 not reached within this many entry bars (0 = off)
 
 input group "Session (broker server time)"
-input int    InpStartHour       = 9;
-input int    InpEndHour         = 21;
+input int    InpStartHour       = 15;    // 15-19 = London-NY overlap on a GMT+2 server (InstaForex winter time)
+input int    InpEndHour         = 19;
 
 input group "General"
 input ulong  InpMagic           = 920101;
@@ -62,6 +68,7 @@ int      hFast = INVALID_HANDLE;
 int      hSlow = INVALID_HANDLE;
 int      hEMA  = INVALID_HANDLE;
 int      hATR  = INVALID_HANDLE;
+int      hADX  = INVALID_HANDLE;
 datetime lastEntryBar = 0;
 string   lastReason = "";
 ulong    trackedTicket = 0;
@@ -87,7 +94,9 @@ int OnInit()
    hSlow = iMA(_Symbol, InpBiasTF, InpBiasSlowEMA, 0, MODE_EMA, PRICE_CLOSE);
    hEMA  = iMA(_Symbol, InpEntryTF, InpPullbackEMA, 0, MODE_EMA, PRICE_CLOSE);
    hATR  = iATR(_Symbol, InpEntryTF, InpATRPeriod);
-   if(hFast == INVALID_HANDLE || hSlow == INVALID_HANDLE || hEMA == INVALID_HANDLE || hATR == INVALID_HANDLE)
+   hADX  = iADX(_Symbol, InpBiasTF, InpADXPeriod);
+   if(hFast == INVALID_HANDLE || hSlow == INVALID_HANDLE || hEMA == INVALID_HANDLE ||
+      hATR == INVALID_HANDLE || hADX == INVALID_HANDLE)
       return INIT_FAILED;
 
    trade.SetExpertMagicNumber(InpMagic);
@@ -114,6 +123,7 @@ void OnDeinit(const int reason)
    if(hSlow != INVALID_HANDLE) IndicatorRelease(hSlow);
    if(hEMA  != INVALID_HANDLE) IndicatorRelease(hEMA);
    if(hATR  != INVALID_HANDLE) IndicatorRelease(hATR);
+   if(hADX  != INVALID_HANDLE) IndicatorRelease(hADX);
    Comment("");
    for(int i = 0; i < ArraySize(tallyNames); i++)
       PrintFormat("XSC outcome: %-40s %d", tallyNames[i], tallyCounts[i]);
@@ -199,7 +209,7 @@ int Bias()
 //+------------------------------------------------------------------+
 //| Heikin Ashi open/close for the last two closed entry bars.       |
 //+------------------------------------------------------------------+
-bool HeikinAshi(double &o1, double &c1, double &o2, double &c2)
+bool HeikinAshi(double &o1, double &c1, double &o2, double &c2, double &h1, double &l1)
   {
    const int n = 60;
    MqlRates r[];
@@ -213,7 +223,12 @@ bool HeikinAshi(double &o1, double &c1, double &o2, double &c2)
       double nextO = (haO + haC) / 2.0;
       double nextC = (r[i].open + r[i].high + r[i].low + r[i].close) / 4.0;
       if(i == n - 3) { o2 = nextO; c2 = nextC; }
-      if(i == n - 2) { o1 = nextO; c1 = nextC; }
+      if(i == n - 2)
+        {
+         o1 = nextO; c1 = nextC;
+         h1 = MathMax(r[i].high, MathMax(nextO, nextC));
+         l1 = MathMin(r[i].low, MathMin(nextO, nextC));
+        }
       haO = nextO;
       haC = nextC;
      }
@@ -320,6 +335,11 @@ void Evaluate()
                                  { Status(head, "Daily loss limit reached"); return; }
    if(streak >= InpMaxConsecLosses) { Status(head, "Losing streak - done for today"); return; }
    if(bias == 0)                 { Status(head, "No bias - standing aside"); return; }
+   if(InpUseADX)
+     {
+      double adx = Buf(hADX, 1);
+      if(adx == EMPTY_VALUE || adx < InpMinADX) { Status(head, "Weak trend (ADX) - standing aside"); return; }
+     }
 
    double atrBuf[];
    if(CopyBuffer(hATR, 0, 1, InpATRBaseline, atrBuf) == InpATRBaseline)
@@ -330,8 +350,9 @@ void Evaluate()
       if(atr > base * InpATRSpikeMult) { Status(head, "ATR spike - news/volatility filter"); return; }
      }
 
-   double hao1 = 0, hac1 = 0, hao2 = 0, hac2 = 0;
-   if(!HeikinAshi(hao1, hac1, hao2, hac2)) return;
+   double hao1 = 0, hac1 = 0, hao2 = 0, hac2 = 0, hah1 = 0, hal1 = 0;
+   if(!HeikinAshi(hao1, hac1, hao2, hac2, hah1, hal1)) return;
+   double tol = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
 
    double c1 = iClose(_Symbol, InpEntryTF, 1);
    int lo3 = iLowest(_Symbol, InpEntryTF, MODE_LOW, 3, 1);
@@ -347,7 +368,8 @@ void Evaluate()
      {
       bool pulledBack = recentLow <= ema + InpTouchATR * atr;
       bool haFlip = hac2 < hao2 && hac1 > hao1;
-      trigger = pulledBack && haFlip && c1 > ema;
+      bool strong = !InpRequireStrongHA || hal1 >= hao1 - tol;
+      trigger = pulledBack && haFlip && strong && c1 > ema;
       pattern = "HA bull candle after pullback to EMA" + IntegerToString(InpPullbackEMA);
       entry = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       sl = iLow(_Symbol, InpEntryTF, iLowest(_Symbol, InpEntryTF, MODE_LOW, InpSwingBars, 1)) - InpSLBufferATR * atr;
@@ -356,7 +378,8 @@ void Evaluate()
      {
       bool pulledBack = recentHigh >= ema - InpTouchATR * atr;
       bool haFlip = hac2 > hao2 && hac1 < hao1;
-      trigger = pulledBack && haFlip && c1 < ema;
+      bool strong = !InpRequireStrongHA || hah1 <= hao1 + tol;
+      trigger = pulledBack && haFlip && strong && c1 < ema;
       pattern = "HA bear candle after pullback to EMA" + IntegerToString(InpPullbackEMA);
       entry = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       sl = iHigh(_Symbol, InpEntryTF, iHighest(_Symbol, InpEntryTF, MODE_HIGH, InpSwingBars, 1)) + InpSLBufferATR * atr;
