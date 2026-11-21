@@ -32,6 +32,18 @@ input double InpTPR             = 2.5;   // Take profit in R
 input double InpBreakevenR      = 1.5;   // Move SL to breakeven at this R (0 = off)
 input int    InpMaxSpreadPoints = 150;   // Skip the day if spread at placement is wider
 
+enum EscapeMode
+  {
+   ESC_NONE    = 0,   // No escape: SL / TP / breakeven / 21:00 only
+   ESC_FAILED  = 1,   // A: exit when an M15 bar closes back inside the Asian range before breakeven
+   ESC_TIME    = 2,   // B: exit if not at least InpTimeStopMinR in profit after InpTimeStopHours
+   ESC_REVERSE = 3    // C: like A, then open the opposite side once (same risk, same exits)
+  };
+input group "Escape rules (under test)"
+input EscapeMode InpEscapeMode  = ESC_NONE;
+input int    InpTimeStopHours   = 3;
+input double InpTimeStopMinR    = 0.5;
+
 input group "General"
 input ulong  InpMagic           = 920201;
 input bool   InpGoldOnly        = true;
@@ -45,6 +57,9 @@ bool     killSwitchLogged = false;
 string   tallyNames[];
 int      tallyCounts[];
 string   dayNote = "";
+double   dayRangeHi = 0, dayRangeLo = 0;   // today's Asian range, for escape rule A/C
+bool     reversedToday = false;
+datetime lastEscapeBar = 0;
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -350,6 +365,9 @@ void PlaceDayOrders()
 
    double hi, lo;
    if(!AsianRange(hi, lo))       { dayNote = "No range data"; Tally(dayNote); return; }
+   dayRangeHi = hi;
+   dayRangeLo = lo;
+   reversedToday = false;
 
    double mid = (hi + lo) / 2.0;
    double rangePct = (hi - lo) / mid * 100.0;
@@ -398,6 +416,72 @@ void PlaceDayOrders()
   }
 
 //+------------------------------------------------------------------+
+//| Escape rules A/B/C. Only act before breakeven: once SL is at     |
+//| entry the trade can no longer lose, so there is nothing to save. |
+//+------------------------------------------------------------------+
+void CheckEscape()
+  {
+   if(InpEscapeMode == ESC_NONE)
+      return;
+   datetime m15 = iTime(_Symbol, PERIOD_M15, 0);
+   bool newBar = m15 != lastEscapeBar;
+   lastEscapeBar = m15;
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong t = PositionGetTicket(i);
+      if(t == 0 || PositionGetString(POSITION_SYMBOL) != _Symbol || (ulong)PositionGetInteger(POSITION_MAGIC) != InpMagic)
+         continue;
+      int dir = PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY ? 1 : -1;
+      double open = PositionGetDouble(POSITION_PRICE_OPEN);
+      double sl = PositionGetDouble(POSITION_SL);
+      double tp = PositionGetDouble(POSITION_TP);
+      double vol = PositionGetDouble(POSITION_VOLUME);
+      datetime opened = (datetime)PositionGetInteger(POSITION_TIME);
+      string comment = PositionGetString(POSITION_COMMENT);
+      if(sl == 0 || tp == 0 || (sl - open) * dir >= 0) continue;
+
+      double risk = MathAbs(tp - open) / InpTPR;
+      double price = dir > 0 ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+
+      if(InpEscapeMode == ESC_TIME)
+        {
+         if(TimeCurrent() - opened >= InpTimeStopHours * 3600 && (price - open) * dir < InpTimeStopMinR * risk)
+            if(trade.PositionClose(t)) Tally("Escape B: time stop");
+         continue;
+        }
+
+      if(!newBar || StringFind(comment, "XLB rev") == 0) continue;   // reversal trades keep plain exits
+      if(iTime(_Symbol, PERIOD_M15, 1) + 15 * 60 <= opened) continue;  // that bar closed before the entry
+      double c = iClose(_Symbol, PERIOD_M15, 1);
+      bool backInside = dir > 0 ? c < dayRangeHi : c > dayRangeLo;
+      if(!backInside) continue;
+
+      int sp = StringLen(comment) - 1;
+      while(sp >= 0 && StringGetCharacter(comment, sp) != ' ') sp--;
+      string reg = sp >= 0 ? StringSubstr(comment, sp + 1) : "UNKNOWN";
+
+      if(!trade.PositionClose(t)) continue;
+      Tally("Escape A: failed breakout exit");
+      if(InpEscapeMode != ESC_REVERSE || reversedToday) continue;
+      reversedToday = true;
+      bool ok;
+      if(dir > 0)
+        {
+         double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+         ok = trade.Sell(vol, _Symbol, 0, NormalizeDouble(bid + risk, digits), NormalizeDouble(bid - risk * InpTPR, digits), "XLB rev " + reg);
+        }
+      else
+        {
+         double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+         ok = trade.Buy(vol, _Symbol, 0, NormalizeDouble(ask - risk, digits), NormalizeDouble(ask + risk * InpTPR, digits), "XLB rev " + reg);
+        }
+      Tally(ok ? "Escape C: reversal opened" : "Escape C: reversal failed");
+     }
+  }
+
+//+------------------------------------------------------------------+
 void ManagePosition()
   {
    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
@@ -439,6 +523,8 @@ void OnTick()
       if(positions > 0) { CloseAll(); Tally("Closed at session end"); }
      }
 
+   if(hour < InpCloseHour)
+      CheckEscape();
    ManagePosition();
 
    if(day != setupDay && hour >= InpRangeEndHour && hour < InpCloseHour)
