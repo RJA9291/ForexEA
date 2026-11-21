@@ -72,3 +72,18 @@ create table if not exists public.journal_reports (
 alter table public.journal_reports enable row level security;
 drop policy if exists "read journal" on public.journal_reports;
 create policy "read journal" on public.journal_reports for select using (true);
+
+-- Daily fundamental context for gold, written by the fundamental agent (added 2026-11-21).
+create table if not exists public.fundamental_briefs (
+  id          bigint generated always as identity primary key,
+  created_at  timestamptz not null default now(),
+  brief_date  date not null unique,   -- MYT date
+  bias        text not null,          -- BULLISH, NEUTRAL, BEARISH (for gold)
+  confidence  text not null,          -- LOW, MEDIUM, HIGH
+  drivers     jsonb,                  -- [{factor, reading, effect}] effect = BULLISH/BEARISH/NEUTRAL
+  summary     text not null,
+  sources     jsonb                   -- list of URLs
+);
+alter table public.fundamental_briefs enable row level security;
+drop policy if exists "read fundamental" on public.fundamental_briefs;
+create policy "read fundamental" on public.fundamental_briefs for select using (true);

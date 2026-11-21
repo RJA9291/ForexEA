@@ -119,13 +119,13 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-history" class="view" hidden></section>
   <section id="view-news" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v3</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v4</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
   <button class="tab" role="tab" data-view="signal" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Signal</button>
   <button class="tab" role="tab" data-view="history" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Sejarah</button>
-  <button class="tab" role="tab" data-view="news" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>Berita</button>
+  <button class="tab" role="tab" data-view="news" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>Pasaran</button>
   <button class="tab" role="tab" data-view="info" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>Strategi</button>
 </div></nav>
 
@@ -151,6 +151,9 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       summary:"Contoh: data PMI AS petang ini. Tiada ucapan Fed dijadualkan.",
       events:[{at:new Date(Date.now()+2*3600e3).toISOString(), time:"Contoh +2 jam", title:"CPI AS (contoh)", impact:"HIGH"},
               {at:new Date(Date.now()+5*3600e3).toISOString(), time:"Contoh +5 jam", title:"Jualan rumah baru (AS)", impact:"LOW"}]},
+    fund: {brief_date:new Date().toISOString().slice(0,10), bias:"BULLISH", confidence:"MEDIUM",
+      summary:"Contoh: yield sebenar AS menurun dan dolar lemah, manakala bank pusat terus membeli emas.",
+      drivers:[{factor:"Yield sebenar 10 tahun AS",reading:"turun 6bp",effect:"BULLISH"},{factor:"Indeks dolar (DXY)",reading:"-0.4%",effect:"BULLISH"},{factor:"Jangkaan kadar Fed",reading:"tiada perubahan",effect:"NEUTRAL"}]},
     journal: {week_start:"2026-11-16", stats:{backtest_win_rate:47.5, week:{closed:4, win_rate:50, total_pips:131}},
       summary:"Contoh: 4 trade ditutup minggu ini, 2 menang. Satu kekalahan berlaku semasa tetingkap berita CPI.",
       lessons:["Contoh: trade yang trigger dalam tetingkap berita kalah 1 daripada 1.","Contoh: sampel masih terlalu kecil untuk banding dengan backtest."]}
@@ -206,7 +209,9 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     var st=STATUS[s.status]||[s.status,""], side=s.side, html="";
     var sideHtml = side ? '<span class="side '+(side==="BUY"?"buy":"sell")+'">'+(side==="BUY"?"↗ BUY":"↘ SELL")+'</span>' : '<span class="side wait">Dua arah</span>';
     html+='<div class="card"><div class="row"><div><span class="label">'+esc(when(s.created_at))+'</span><h1>XAUUSD</h1></div>'+sideHtml+'</div>';
-    html+='<div class="row"><span class="chip '+st[1]+'">'+esc(st[0])+'</span>'+(s.news_risk?'<span class="chip '+(s.news_risk==="HIGH"?"warn":"")+'">Risiko berita: '+esc(s.news_risk)+'</span>':"")+'</div>';
+    var fb=data.fund&&BIAS[data.fund.bias];
+    html+='<div class="row"><span class="chip '+st[1]+'">'+esc(st[0])+'</span>'+(s.news_risk?'<span class="chip '+(s.news_risk==="HIGH"?"warn":"")+'">Risiko berita: '+esc(s.news_risk)+'</span>':"")+
+      (fb?'<span class="chip '+fb[1]+'">Fundamental: '+esc(fb[0])+'</span>':"")+'</div>';
 
     if(s.status==="PENDING"){
       var r=(s.risk_pips||0)/10;
@@ -262,10 +267,22 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       ((j.lessons&&j.lessons.length)?'<div class="reasons"><span class="label">Pengajaran</span><ul>'+j.lessons.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+'</ul></div>':"")+'</div>';
   }
 
+  var BIAS={BULLISH:["Bullish","buy"],BEARISH:["Bearish","sell"],NEUTRAL:["Neutral",""]};
+  function fundCard(){
+    var f=data.fund;
+    if(!f) return '<div class="card"><h2>Fundamental gold</h2><p class="muted small" style="margin:0">Belum ada analisis fundamental untuk hari ini. Ia dikemas kini setiap hari bekerja sebelum 14:00 MYT.</p></div>';
+    var b=BIAS[f.bias]||[f.bias,""];
+    return '<div class="card"><div class="row"><h2>Fundamental '+esc(f.brief_date)+'</h2><span class="chip '+b[1]+'">'+esc(b[0])+' · keyakinan '+esc(f.confidence)+'</span></div>'+
+      '<p style="margin:0">'+esc(f.summary)+'</p>'+
+      '<div class="list">'+(f.drivers||[]).map(function(d){var e=BIAS[d.effect]||[d.effect,""];
+        return '<div class="item"><span class="chip '+e[1]+'">'+esc(e[0])+'</span><span>'+esc(d.factor)+'</span><span class="small muted">'+esc(d.reading)+'</span></div>';}).join("")+'</div>'+
+      '<p class="small muted" style="margin:0">Konteks dari ejen AI, belum diuji dengan backtest. Bukan arahan beli atau jual.</p></div>';
+  }
+
   function renderNews(){
     var n=data.news, el=document.getElementById("view-news");
-    if(!n){el.innerHTML='<div class="card"><h2>Laporan berita</h2><p class="muted">Belum ada laporan untuk hari ini.</p></div>';return;}
-    el.innerHTML='<div class="card"><div class="row"><h2>Laporan '+esc(n.brief_date)+'</h2><span class="chip '+(n.risk_level==="HIGH"?"warn":"")+'">Risiko '+esc(n.risk_level)+'</span></div>'+
+    if(!n){el.innerHTML=fundCard()+'<div class="card"><h2>Laporan berita</h2><p class="muted">Belum ada laporan untuk hari ini.</p></div>';return;}
+    el.innerHTML=fundCard()+'<div class="card"><div class="row"><h2>Laporan '+esc(n.brief_date)+'</h2><span class="chip '+(n.risk_level==="HIGH"?"warn":"")+'">Risiko '+esc(n.risk_level)+'</span></div>'+
       '<p style="margin:0">'+esc(n.summary)+'</p><div class="list">'+(n.events||[]).map(function(e){
         return '<div class="item"><span class="num small">'+esc(e.time)+'</span><span>'+esc(e.title)+'</span><span class="chip '+(e.impact==="HIGH"?"warn":"")+'">'+esc(e.impact)+'</span></div>';
       }).join("")+'</div></div>';
@@ -306,9 +323,10 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       get("market?symbol=eq.XAUUSD&limit=1"),
       get("signals?order=created_at.desc&limit=40"),
       get("news_briefs?order=brief_date.desc&limit=1"),
-      get("journal_reports?order=week_start.desc&limit=1")
+      get("journal_reports?order=week_start.desc&limit=1"),
+      get("fundamental_briefs?order=brief_date.desc&limit=1")
     ]).then(function(res){
-      data={market:res[0][0]||null,signals:res[1],news:res[2][0]||null,journal:res[3][0]||null};demo=false;render();
+      data={market:res[0][0]||null,signals:res[1],news:res[2][0]||null,journal:res[3][0]||null,fund:res[4][0]||null};demo=false;render();
     }).catch(function(){
       if(!data){data=DEMO;demo=true;}
       render();

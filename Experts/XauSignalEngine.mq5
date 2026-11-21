@@ -56,6 +56,8 @@ string   newsTitle[];
 bool     newsWarned[];
 int      newsFetchHour = -1;
 bool     inNewsWindow = false;
+string   fundBias = "";            // BULLISH / NEUTRAL / BEARISH from the fundamental agent
+string   fundConf = "";
 string   newsWindowText = "";
 
 //+------------------------------------------------------------------+
@@ -188,6 +190,18 @@ void FetchNewsRisk()
      }
   }
 
+void FetchFundamental()
+  {
+   fundBias = ""; fundConf = "";
+   MqlDateTime d;
+   TimeToStruct(TimeGMT() + 8 * 3600, d);
+   string resp;
+   string path = StringFormat("/rest/v1/fundamental_briefs?select=bias,confidence&brief_date=eq.%04d-%02d-%02d", d.year, d.mon, d.day);
+   if(Rest("GET", path, "", "", resp) != 200) return;
+   fundBias = JsonField(resp, "bias", 0, -1);
+   fundConf = JsonField(resp, "confidence", 0, -1);
+  }
+
 void CheckNewsWindow()
   {
    MqlDateTime h;
@@ -248,6 +262,11 @@ string ReasonsJson()
       r += "," + JStr("News risk HIGH today: major release can whipsaw the breakout (news filter not yet backtested - see Berita tab)");
    else if(newsRisk == "UNKNOWN")
       r += "," + JStr("No news brief for today yet");
+   if(fundBias != "")
+     {
+      string favours = fundBias == "BULLISH" ? " - favours the BUY STOP side" : (fundBias == "BEARISH" ? " - favours the SELL STOP side" : "");
+      r += "," + JStr(StringFormat("Fundamental bias %s (%s confidence)%s; AI context, not backtested", fundBias, fundConf, favours));
+     }
    return r + "]";
   }
 
@@ -341,6 +360,7 @@ void CreateSetup()
   {
    if(!BuildRange()) { Comment("XauSignalEngine: no range data today"); state = ST_DONE; return; }
    FetchNewsRisk();
+   FetchFundamental();
    double mid = (rangeHi + rangeLo) / 2.0;
    double pct = (rangeHi - rangeLo) / mid * 100.0;
    double pip = PipSize();
