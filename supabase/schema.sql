@@ -91,3 +91,6 @@ create policy "read fundamental" on public.fundamental_briefs for select using (
 -- Devil's Advocate review of each day's setup (added 2026-11-22). The engine never writes this column,
 -- so its PATCH updates leave the review in place.
 alter table public.signals add column if not exists critique jsonb;   -- {caution, against_buy[], against_sell[], summary, written_at}
+
+-- Clearance gate decision written by the MT5 engine (added 2026-11-22).
+alter table public.signals add column if not exists clearance jsonb;  -- {status, checks:[{id,name,pass,detail}], decided_at}

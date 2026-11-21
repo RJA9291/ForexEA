@@ -36,10 +36,26 @@ function Summarize($rows) {
         avg_loss_pips   = if ($losses.Count) { [math]::Round(($losses | Measure-Object result_pips -Average).Average, 1) } else { $null }
         news_window     = @($rows | Where-Object { $_.escape.rule -eq 'NEWS_WINDOW' } | ForEach-Object { [ordered]@{ id = $_.id; status = $_.status; result_pips = $_.result_pips } })
         escape_a_flagged = @($rows | Where-Object { $_.escape.rule -eq 'A_FAILED_BREAKOUT' } | ForEach-Object { [ordered]@{ id = $_.id; status = $_.status; result_pips = $_.result_pips } })
+        by_clearance    = [ordered]@{
+            CLEARED     = ClearanceGroup $closed 'CLEARED'
+            CAUTION     = ClearanceGroup $closed 'CAUTION'
+            NOT_CLEARED = ClearanceGroup $closed 'NOT_CLEARED'
+        }
     }
 }
 
-$select = 'id,created_at,status,side,result_pips,peak_pips,risk_pips,news_risk,escape'
+# Shows whether the clearance gate separates better trades from worse ones.
+function ClearanceGroup($closed, $status) {
+    $g = @($closed | Where-Object { $_.clearance.status -eq $status })
+    $w = @($g | Where-Object { $_.result_pips -gt 0 })
+    [ordered]@{
+        closed     = $g.Count
+        win_rate   = if ($g.Count) { [math]::Round(100.0 * $w.Count / $g.Count, 1) } else { $null }
+        total_pips = if ($g.Count) { [math]::Round([double](($g | Measure-Object result_pips -Sum).Sum), 1) } else { 0 }
+    }
+}
+
+$select = 'id,created_at,status,side,result_pips,peak_pips,risk_pips,news_risk,escape,clearance'
 $week = Invoke-Supabase -Method GET -Path "/rest/v1/signals?select=$select&created_at=gte.$fromUtc&created_at=lt.$toUtc&order=created_at"
 $all  = Invoke-Supabase -Method GET -Path "/rest/v1/signals?select=$select&created_at=lt.$toUtc&order=created_at"
 

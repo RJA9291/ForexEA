@@ -40,6 +40,9 @@ input bool   InpPushNotify      = true;  // MT5 mobile push (Tools > Options > N
 
 enum SigState { ST_NONE, ST_PENDING, ST_ACTIVE, ST_DONE };
 
+string   clearStatus = "";         // CLEARED / CAUTION / NOT_CLEARED for today's signal
+string   critiqueCaution = "";     // LOW / MEDIUM / HIGH from the Devil's Advocate
+datetime lastCritiqueCheck = 0;
 string   serviceKey = "";          // InpServiceKey, or SUPABASE_SERVICE_KEY from MQL5\Files\aurum.env
 
 SigState state = ST_NONE;
@@ -407,6 +410,59 @@ void Notify(const string text)
    if(InpPushNotify) SendNotification("XAUUSD " + text);
   }
 
+// Phone pushes are reserved for CLEARED trades (and news warnings); everything else is logged only.
+void NotifyCleared(const string text)
+  {
+   if(clearStatus == "CLEARED") Notify(text);
+   else Print("XauSignalEngine: ", text, " [", clearStatus == "" ? "no clearance" : clearStatus, " - not pushed]");
+  }
+
+//+------------------------------------------------------------------+
+//| Clearance gate: fixed checklist approved by the user. Checks 1-2 |
+//| are hard stops; one soft failure = CAUTION; two or more =        |
+//| NOT_CLEARED. Only check 1 is backed by backtest data.            |
+//+------------------------------------------------------------------+
+void FetchCritique()
+  {
+   if(sigId == 0) return;
+   string resp;
+   if(Rest("GET", "/rest/v1/signals?select=critique&id=eq." + IntegerToString(sigId), "", "", resp) != 200) return;
+   critiqueCaution = JsonField(resp, "caution", 0, -1);
+  }
+
+string Check(const int id, const string name, const bool pass, const string detail)
+  {
+   return StringFormat("{\"id\":%d,\"name\":%s,\"pass\":%s,\"detail\":%s}", id, JStr(name), pass ? "true" : "false", JStr(detail));
+  }
+
+void SaveClearance(const int dir)
+  {
+   bool c1 = regimeNow != "TREND_UP";
+   bool c2 = !inNewsWindow;
+   bool opposite = (dir > 0 && fundBias == "BEARISH") || (dir < 0 && fundBias == "BULLISH");
+   bool c3 = !(opposite && fundConf == "HIGH");
+   bool c4 = critiqueCaution != "HIGH";
+
+   string d3 = dir == 0 ? "Waiting for a side to trigger" :
+               (fundBias == "" ? "No fundamental brief today" :
+               StringFormat("Bias %s (%s)%s", fundBias, fundConf, opposite ? " against this side" : ""));
+   string d4 = critiqueCaution == "" ? "Devil's Advocate review not in yet" : "Caution " + critiqueCaution;
+   string checks = "[" +
+      Check(1, "Regime", c1, c1 ? "Regime " + regimeNow : "TREND_UP lost in both backtest periods") + "," +
+      Check(2, "News", c2, c2 ? "No HIGH-impact news window now" : newsWindowText) + "," +
+      Check(3, "Fundamental", c3, d3) + "," +
+      Check(4, "Devil's Advocate", c4, d4) + "]";
+
+   int soft = (c3 ? 0 : 1) + (c4 ? 0 : 1);
+   string status = (!c1 || !c2 || soft >= 2) ? "NOT_CLEARED" : (soft == 1 ? "CAUTION" : "CLEARED");
+   clearStatus = status;
+
+   string resp;
+   string body = StringFormat("{\"clearance\":{\"status\":%s,\"stage\":%s,\"checks\":%s,\"decided_at\":%s}}",
+                              JStr(status), JStr(dir == 0 ? "PRE_TRIGGER" : "AT_TRIGGER"), checks, JStr(TimeToIso(TimeGMT())));
+   Rest("PATCH", "/rest/v1/signals?id=eq." + IntegerToString(sigId), body, "", resp);
+  }
+
 //+------------------------------------------------------------------+
 //| Setup and tracking                                               |
 //+------------------------------------------------------------------+
@@ -414,6 +470,7 @@ void ResetDay(const datetime day)
   {
    state = ST_NONE; sigDay = day; sigId = 0; side = 0; peak = 0;
    beSet = false; escapeFlagged = false;
+   clearStatus = ""; critiqueCaution = ""; lastCritiqueCheck = 0;
   }
 
 bool BuildRange()
@@ -444,13 +501,15 @@ void CreateSetup()
      {
       string why = pct < InpMinRangePct ? "Range too narrow" : "Range too wide";
       SaveSignal("NO_TRADE", "\"escape\":{\"note\":" + JStr(why) + "}");
-      Notify(StringFormat("NO TRADE today: %s (%.2f%%)", why, pct));
+      Print(StringFormat("XauSignalEngine: NO TRADE today: %s (%.2f%%)", why, pct));
       state = ST_DONE;
       return;
      }
    state = ST_PENDING;
    SaveSignal("PENDING", inNewsWindow ? NewsEscape() : "");
-   Notify(StringFormat("London setup: BUY STOP %s / SELL STOP %s, risk %.0f pip", Num(buyAt), Num(sellAt), risk / pip));
+   SaveClearance(0);
+   Print(StringFormat("XauSignalEngine: London setup BUY STOP %s / SELL STOP %s, risk %.0f pip, pre-clearance %s",
+                      Num(buyAt), Num(sellAt), risk / pip, clearStatus));
   }
 
 void Trigger(const int dir)
@@ -462,8 +521,10 @@ void Trigger(const int dir)
    tp2 = entry + dir * risk * InpTPR;
    state = ST_ACTIVE;
    SaveSignal("ACTIVE", TradeFields() + (inNewsWindow ? "," + NewsEscape() : ""));
-   Notify(StringFormat("%s triggered @%s SL %s TP %s%s", dir > 0 ? "BUY" : "SELL", Num(entry), Num(sl), Num(tp2),
-                       inNewsWindow ? " - INSIDE NEWS WINDOW, avoid entry" : ""));
+   FetchCritique();
+   SaveClearance(dir);
+   NotifyCleared(StringFormat("CLEARED: %s @%s SL %s TP %s (BE at %s)", dir > 0 ? "BUY" : "SELL",
+                              Num(entry), Num(sl), Num(tp2), Num(tp1)));
   }
 
 void Close(const string status, const double exitPrice)
@@ -471,7 +532,21 @@ void Close(const string status, const double exitPrice)
    double pips = (exitPrice - entry) * side / PipSize();
    state = ST_DONE;
    SaveSignal(status, TradeFields() + StringFormat(",\"result_pips\":%.1f", pips));
-   Notify(StringFormat("%s closed: %s (%+.1f pip)", side > 0 ? "BUY" : "SELL", status, pips));
+   NotifyCleared(StringFormat("%s closed: %s (%+.1f pip)", side > 0 ? "BUY" : "SELL", status, pips));
+  }
+
+// The Devil's Advocate posts about 25 minutes after the setup; re-run the gate once it lands.
+void RefreshClearance()
+  {
+   if(state != ST_PENDING && state != ST_ACTIVE) return;
+   if(critiqueCaution != "" || TimeCurrent() - lastCritiqueCheck < 60) return;
+   lastCritiqueCheck = TimeCurrent();
+   FetchCritique();
+   if(critiqueCaution == "") return;
+   string before = clearStatus;
+   SaveClearance(state == ST_ACTIVE ? side : 0);
+   if(state == ST_ACTIVE && before == "CLEARED" && clearStatus != "CLEARED")
+      Notify("Clearance changed to " + clearStatus + " after Devil's Advocate review");
   }
 
 void CheckEscape()
@@ -487,7 +562,7 @@ void CheckEscape()
    string advice = "M15 closed back inside the Asian range: breakout may be failing. "
                    "Escape rule A suggests exiting early. NOT YET BACKTESTED - informational only.";
    SaveSignal("ACTIVE", TradeFields() + ",\"escape\":{\"rule\":\"A_FAILED_BREAKOUT\",\"tested\":false,\"advice\":" + JStr(advice) + "}");
-   Notify("ESCAPE WARNING: M15 back inside range (rule A, untested)");
+   NotifyCleared("ESCAPE WARNING: M15 back inside range (rule A, untested)");
   }
 
 void Track()
@@ -513,7 +588,7 @@ void Track()
       beSet = true;
       sl = entry;
       SaveSignal("TP1", TradeFields());
-      Notify(StringFormat("TP1 HIT - move SL to break even %s", Num(entry)));
+      NotifyCleared(StringFormat("TP1 HIT - move SL to break even %s", Num(entry)));
       return;
      }
    CheckEscape();
@@ -535,7 +610,7 @@ void OnTick()
 
    if(hour >= InpCloseHour)
      {
-      if(state == ST_PENDING) { state = ST_DONE; SaveSignal("CANCELLED", ""); Notify("Setup cancelled: no breakout by session end"); }
+      if(state == ST_PENDING) { state = ST_DONE; SaveSignal("CANCELLED", ""); Print("XauSignalEngine: setup cancelled, no breakout by session end"); }
       else if(state == ST_ACTIVE) Close("CLOSED_TIME", side > 0 ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK));
      }
    else
@@ -551,5 +626,6 @@ void OnTimer()
   {
    PushPrice();
    CheckNewsWindow();   // runs on the timer so warnings fire even when no ticks arrive
+   RefreshClearance();
   }
 //+------------------------------------------------------------------+

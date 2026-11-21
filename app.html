@@ -99,7 +99,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-history" class="view" hidden></section>
   <section id="view-news" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v6</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v7</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
@@ -124,6 +124,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
        reasons:["Julat Asia 2631.70-2639.00 (0.28%) dalam had","Breakout julat 03:00-08:00 server semasa London dibuka","Risiko 83 pip, BE pada 1.5R, sasaran 2.5R"],
        regime:"MIXED", stats:{trades:543,win_rate:47.5,max_drawdown_pct:23.7,regime:{name:"MIXED",trades:178,win_rate:50.6,pf:1.26,pf_2024_25:1.07,pf_2026:1.47,verdict:"PROFITABLE_BOTH"},by_year:[{year:2024,win_rate:48.2,pf:1.12},{year:2025,win_rate:44.8,pf:1.15},{year:2026,win_rate:49.7,pf:1.46}]},
        news_risk:"MEDIUM",
+       clearance:{status:"CAUTION",stage:"AT_TRIGGER",checks:[{id:1,name:"Regime",pass:true,detail:"Regime MIXED"},{id:2,name:"News",pass:true,detail:"Tiada berita TINGGI sekarang"},{id:3,name:"Fundamental",pass:true,detail:"Bias BULLISH (MEDIUM)"},{id:4,name:"Devil's Advocate",pass:false,detail:"Caution HIGH (contoh)"}]},
        critique:{caution:"MEDIUM",summary:"Contoh: breakout berlaku sejurus sebelum data PMI, dan harga dah dekat paras rintangan minggu lalu.",against_buy:["Contoh: harga dekat high mingguan 2662, ruang ke TP terhad.","Contoh: RSI H1 dah overbought."],against_sell:["Contoh: trend H4 masih naik."]}},
       {id:2, created_at:new Date(Date.now()-27*3600e3).toISOString(), status:"CLOSED_SL", side:"SELL", entry:2655.10, result_pips:-92},
       {id:1, created_at:new Date(Date.now()-51*3600e3).toISOString(), status:"CLOSED_TP", side:"BUY", entry:2611.40, result_pips:215}
@@ -168,6 +169,19 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       '<div class="stats"><div class="stat"><span class="label">Semua</span><b class="num">'+esc(st.win_rate)+'%</b><small class="muted">menang</small></div>'+years+'</div>'+
       regimeStats(st.regime)+
       '<p class="small muted" style="margin:0">Drawdown maksimum '+esc(st.max_drawdown_pct)+'% pada risiko 1%. Kebanyakan untung datang dari 2026; 2024 dan 2025 lebih nipis.</p></div>';
+  }
+
+  var CLEAR={CLEARED:["CLEARED","buy","Semua syarat lulus."],CAUTION:["CAUTION","warn","Satu syarat gagal. Semak sebelum masuk."],NOT_CLEARED:["NOT CLEARED","sell","Tidak lulus clearance. Sejarah menunjukkan lebih baik tidak masuk."]};
+  var CHECK_MS={"Regime":"Regime","News":"Berita","Fundamental":"Fundamental","Devil's Advocate":"Devil's Advocate"};
+  function clearanceBlock(c){
+    if(!c) return "";
+    var k=CLEAR[c.status]||[c.status,"",""];
+    var pre=c.stage==="PRE_TRIGGER"?" (sebelum trigger)":"";
+    return '<div class="lv" style="gap:8px"><div class="row"><span class="label">Clearance'+pre+'</span>'+
+      '<span class="side '+(k[1]==="buy"?"buy":k[1]==="sell"?"sell":"wait")+'">'+esc(k[0])+'</span></div>'+
+      '<small>'+esc(k[2])+'</small><div class="list">'+(c.checks||[]).map(function(x){
+        return '<div class="item"><span class="chip '+(x.pass?"buy":"sell")+'">'+(x.pass?"Lulus":"Gagal")+'</span><span>'+esc(CHECK_MS[x.name]||x.name)+'</span><span class="small muted">'+esc(x.detail)+'</span></div>';
+      }).join("")+'</div><small class="muted">Hanya syarat regime disokong backtest. Syarat lain sedang dipantau oleh Ejen Jurnal.</small></div>';
   }
 
   var CAUTION={LOW:["Amaran rendah",""],MEDIUM:["Amaran sederhana","warn"],HIGH:["Amaran tinggi","sell"]};
@@ -219,6 +233,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     html+='<div class="row"><span class="chip '+st[1]+'">'+esc(st[0])+'</span>'+(s.news_risk?'<span class="chip '+(s.news_risk==="HIGH"?"warn":"")+'">Risiko berita: '+esc(s.news_risk)+'</span>':"")+
       (fb?'<span class="chip '+fb[1]+'">Fundamental: '+esc(fb[0])+'</span>':"")+
       (s.regime?'<span class="chip '+((s.stats&&s.stats.regime&&s.stats.regime.verdict==="LOSING_BOTH")?"sell":"")+'">Regime: '+esc(REGIME[s.regime]||s.regime)+'</span>':"")+'</div>';
+    html+=clearanceBlock(s.clearance);
 
     if(s.status==="PENDING"){
       var r=(s.risk_pips||0)/10;
@@ -256,8 +271,9 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       '<div class="stat"><span class="label">Jumlah</span><b class="num '+cls(total)+'">'+(list.length?pips(total):"—")+'</b></div></div>';
     html+='<div class="list">'+(data.signals||[]).map(function(s){
       var st=STATUS[s.status]||[s.status,""];
+      var cl=s.clearance&&CLEAR[s.clearance.status];
       return '<div class="item"><span class="chip '+(s.side==="BUY"?"buy":s.side==="SELL"?"sell":"")+'">'+esc(s.side||"—")+'</span>'+
-        '<div><div>'+esc(st[0])+'</div><div class="small muted">'+esc(when(s.created_at))+'</div></div>'+
+        '<div><div>'+esc(st[0])+(cl?' <span class="chip '+cl[1]+'">'+esc(cl[0])+'</span>':"")+'</div><div class="small muted">'+esc(when(s.created_at))+'</div></div>'+
         '<b class="num '+cls(s.result_pips)+'">'+(s.result_pips!=null?pips(s.result_pips):"")+'</b></div>';
     }).join("")+'</div></div>';
     document.getElementById("view-history").innerHTML=journalCard()+html;
