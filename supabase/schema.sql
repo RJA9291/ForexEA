@@ -59,3 +59,16 @@ drop policy if exists "read news" on public.news_briefs;
 create policy "read market"  on public.market      for select using (true);
 create policy "read signals" on public.signals     for select using (true);
 create policy "read news"    on public.news_briefs for select using (true);
+
+-- Weekly journal written by the scheduled journal agent (added 2026-11-21).
+create table if not exists public.journal_reports (
+  id          bigint generated always as identity primary key,
+  created_at  timestamptz not null default now(),
+  week_start  date not null unique,   -- Monday of the reviewed week (MYT)
+  stats       jsonb not null,         -- numbers computed by tools/journal_stats.ps1
+  summary     text not null,          -- the agent's review in Bahasa Malaysia
+  lessons     jsonb                   -- list of short findings
+);
+alter table public.journal_reports enable row level security;
+drop policy if exists "read journal" on public.journal_reports;
+create policy "read journal" on public.journal_reports for select using (true);

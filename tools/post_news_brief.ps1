@@ -37,7 +37,8 @@ $headers = @{
     Authorization = "Bearer $($cfg.SUPABASE_SERVICE_KEY)"
     Prefer        = 'resolution=merge-duplicates,return=minimal'
 }
+# Supabase rejects secret keys from browser-like User-Agents, and PowerShell 5.1 defaults to "Mozilla/5.0 ...".
 Invoke-RestMethod -Method Post -Uri "$($cfg.SUPABASE_URL)/rest/v1/news_briefs?on_conflict=brief_date" `
-    -Headers $headers -ContentType 'application/json; charset=utf-8' `
+    -Headers $headers -ContentType 'application/json; charset=utf-8' -UserAgent 'ForexEA-brief/1.0' `
     -Body ([Text.Encoding]::UTF8.GetBytes($body)) | Out-Null
 "Posted news brief for $($brief.brief_date): risk $($brief.risk_level), $(@($brief.events).Count) events."

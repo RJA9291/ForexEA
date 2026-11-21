@@ -99,7 +99,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-history" class="view" hidden></section>
   <section id="view-news" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v2</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v3</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
@@ -130,7 +130,10 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     news: {brief_date:new Date().toISOString().slice(0,10), risk_level:"MEDIUM",
       summary:"Contoh: data PMI AS petang ini. Tiada ucapan Fed dijadualkan.",
       events:[{at:new Date(Date.now()+2*3600e3).toISOString(), time:"Contoh +2 jam", title:"CPI AS (contoh)", impact:"HIGH"},
-              {at:new Date(Date.now()+5*3600e3).toISOString(), time:"Contoh +5 jam", title:"Jualan rumah baru (AS)", impact:"LOW"}]}
+              {at:new Date(Date.now()+5*3600e3).toISOString(), time:"Contoh +5 jam", title:"Jualan rumah baru (AS)", impact:"LOW"}]},
+    journal: {week_start:"2026-11-16", stats:{backtest_win_rate:47.5, week:{closed:4, win_rate:50, total_pips:131}},
+      summary:"Contoh: 4 trade ditutup minggu ini, 2 menang. Satu kekalahan berlaku semasa tetingkap berita CPI.",
+      lessons:["Contoh: trade yang trigger dalam tetingkap berita kalah 1 daripada 1.","Contoh: sampel masih terlalu kecil untuk banding dengan backtest."]}
   };
 
   var data = null, demo = false;
@@ -224,7 +227,19 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
         '<div><div>'+esc(st[0])+'</div><div class="small muted">'+esc(when(s.created_at))+'</div></div>'+
         '<b class="num '+cls(s.result_pips)+'">'+(s.result_pips!=null?pips(s.result_pips):"")+'</b></div>';
     }).join("")+'</div></div>';
-    document.getElementById("view-history").innerHTML=html;
+    document.getElementById("view-history").innerHTML=journalCard()+html;
+  }
+
+  function journalCard(){
+    var j=data.journal;
+    if(!j) return '<div class="card"><h2>Jurnal mingguan</h2><p class="muted small" style="margin:0">Laporan pertama keluar setiap Sabtu selepas minggu dagangan pertama.</p></div>';
+    var w=(j.stats&&j.stats.week)||{};
+    return '<div class="card"><div class="row"><h2>Jurnal minggu '+esc(j.week_start)+'</h2><span class="chip gold">Ejen Jurnal</span></div>'+
+      '<div class="stats"><div class="stat"><span class="label">Ditutup</span><b class="num">'+esc(w.closed||0)+'</b></div>'+
+      '<div class="stat"><span class="label">Menang</span><b class="num">'+(w.win_rate==null?"—":w.win_rate+"%")+'</b><small class="muted">backtest '+esc((j.stats&&j.stats.backtest_win_rate)||47.5)+'%</small></div>'+
+      '<div class="stat"><span class="label">Pip</span><b class="num '+cls(w.total_pips)+'">'+pips(w.total_pips||0)+'</b></div></div>'+
+      '<p style="margin:0">'+esc(j.summary)+'</p>'+
+      ((j.lessons&&j.lessons.length)?'<div class="reasons"><span class="label">Pengajaran</span><ul>'+j.lessons.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+'</ul></div>':"")+'</div>';
   }
 
   function renderNews(){
@@ -270,9 +285,10 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     Promise.all([
       get("market?symbol=eq.XAUUSD&limit=1"),
       get("signals?order=created_at.desc&limit=40"),
-      get("news_briefs?order=brief_date.desc&limit=1")
+      get("news_briefs?order=brief_date.desc&limit=1"),
+      get("journal_reports?order=week_start.desc&limit=1")
     ]).then(function(res){
-      data={market:res[0][0]||null,signals:res[1],news:res[2][0]||null};demo=false;render();
+      data={market:res[0][0]||null,signals:res[1],news:res[2][0]||null,journal:res[3][0]||null};demo=false;render();
     }).catch(function(){
       if(!data){data=DEMO;demo=true;}
       render();
