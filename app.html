@@ -99,7 +99,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-history" class="view" hidden></section>
   <section id="view-news" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v4</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v5</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
@@ -122,7 +122,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       {id:3, created_at:new Date(Date.now()-3*3600e3).toISOString(), status:"TP1", side:"BUY", buy_entry:2639.50, sell_entry:2631.20,
        entry:2639.50, sl:2639.50, tp1:2651.95, tp2:2660.25, risk_pips:83, lots:0.01, risk_usd:41.5, running_pips:89.2, peak_pips:121.0,
        reasons:["Julat Asia 2631.70-2639.00 (0.28%) dalam had","Breakout julat 03:00-08:00 server semasa London dibuka","Risiko 83 pip, BE pada 1.5R, sasaran 2.5R"],
-       stats:{trades:543,win_rate:47.5,max_drawdown_pct:23.7,by_year:[{year:2024,win_rate:48.2,pf:1.12},{year:2025,win_rate:44.8,pf:1.15},{year:2026,win_rate:49.7,pf:1.46}]},
+       regime:"MIXED", stats:{trades:543,win_rate:47.5,max_drawdown_pct:23.7,regime:{name:"MIXED",trades:178,win_rate:50.6,pf:1.26,pf_2024_25:1.07,pf_2026:1.47,verdict:"PROFITABLE_BOTH"},by_year:[{year:2024,win_rate:48.2,pf:1.12},{year:2025,win_rate:44.8,pf:1.15},{year:2026,win_rate:49.7,pf:1.46}]},
        news_risk:"MEDIUM"},
       {id:2, created_at:new Date(Date.now()-27*3600e3).toISOString(), status:"CLOSED_SL", side:"SELL", entry:2655.10, result_pips:-92},
       {id:1, created_at:new Date(Date.now()-51*3600e3).toISOString(), status:"CLOSED_TP", side:"BUY", entry:2611.40, result_pips:215}
@@ -165,7 +165,17 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     var years=(st.by_year||[]).map(function(y){return '<div class="stat"><span class="label">'+y.year+'</span><b class="num">'+y.win_rate+'%</b><small class="muted">PF '+y.pf+'</small></div>';}).join("");
     return '<div class="card"><div class="row"><h2>Win rate sejarah</h2><span class="chip">'+esc(st.trades)+' trade · backtest</span></div>'+
       '<div class="stats"><div class="stat"><span class="label">Semua</span><b class="num">'+esc(st.win_rate)+'%</b><small class="muted">menang</small></div>'+years+'</div>'+
+      regimeStats(st.regime)+
       '<p class="small muted" style="margin:0">Drawdown maksimum '+esc(st.max_drawdown_pct)+'% pada risiko 1%. Kebanyakan untung datang dari 2026; 2024 dan 2025 lebih nipis.</p></div>';
+  }
+
+  var REGIME={TREND_UP:"Trend naik",TREND_DOWN:"Trend turun",RANGING:"Sideways",MIXED:"Bercampur",HIGH_VOL:"Volatiliti tinggi"};
+  var VERDICT={PROFITABLE_BOTH:["Untung dalam 2024–25 dan 2026","buy"],LOSING_BOTH:["Rugi dalam 2024–25 dan 2026, sejarah lebih baik langkau","sell"],INCONSISTENT:["Tak konsisten antara tempoh, tiada kelebihan jelas",""]};
+  function regimeStats(r){
+    if(!r) return "";
+    var v=VERDICT[r.verdict]||[r.verdict,""];
+    return '<div class="lv"><div class="row"><span class="label">Regime hari ini: '+esc(REGIME[r.name]||r.name)+'</span><span class="chip '+v[1]+'">'+esc(r.win_rate)+'% menang · PF '+esc(r.pf)+'</span></div>'+
+      '<small>'+esc(r.trades)+' trade dalam regime ini · PF 2024–25 '+esc(r.pf_2024_25)+' · PF 2026 '+esc(r.pf_2026)+'</small><small><b>'+esc(v[0])+'</b></small></div>';
   }
 
   var NEWS_BEFORE_MIN=30, NEWS_AFTER_MIN=30;
@@ -191,7 +201,8 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     html+='<div class="card"><div class="row"><div><span class="label">'+esc(when(s.created_at))+'</span><h1>XAUUSD</h1></div>'+sideHtml+'</div>';
     var fb=data.fund&&BIAS[data.fund.bias];
     html+='<div class="row"><span class="chip '+st[1]+'">'+esc(st[0])+'</span>'+(s.news_risk?'<span class="chip '+(s.news_risk==="HIGH"?"warn":"")+'">Risiko berita: '+esc(s.news_risk)+'</span>':"")+
-      (fb?'<span class="chip '+fb[1]+'">Fundamental: '+esc(fb[0])+'</span>':"")+'</div>';
+      (fb?'<span class="chip '+fb[1]+'">Fundamental: '+esc(fb[0])+'</span>':"")+
+      (s.regime?'<span class="chip '+((s.stats&&s.stats.regime&&s.stats.regime.verdict==="LOSING_BOTH")?"sell":"")+'">Regime: '+esc(REGIME[s.regime]||s.regime)+'</span>':"")+'</div>';
 
     if(s.status==="PENDING"){
       var r=(s.risk_pips||0)/10;

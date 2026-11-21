@@ -13,7 +13,7 @@
 
 input group "Supabase (keep the service key out of the repo)"
 input string InpSupabaseUrl     = "https://ukzbdszndqvgycsnjeof.supabase.co";   // also add under Tools > Options > Expert Advisors > Allow WebRequest
-input string InpServiceKey      = "";    // service_role key: paste here only, never commit
+input string InpServiceKey      = "";    // service key; leave empty to read MQL5\Files\aurum.env instead
 input int    InpPriceSeconds    = 5;     // how often the live price is pushed
 
 input group "Position sizing shown in the signal"
@@ -39,6 +39,8 @@ input group "Alerts"
 input bool   InpPushNotify      = true;  // MT5 mobile push (Tools > Options > Notifications, MetaQuotes ID)
 
 enum SigState { ST_NONE, ST_PENDING, ST_ACTIVE, ST_DONE };
+
+string   serviceKey = "";          // InpServiceKey, or SUPABASE_SERVICE_KEY from MQL5\Files\aurum.env
 
 SigState state = ST_NONE;
 datetime sigDay = 0;
@@ -69,7 +71,26 @@ int OnInit()
   {
    if(StringFind(_Symbol, "XAU") < 0 && StringFind(_Symbol, "GOLD") < 0)
       return INIT_PARAMETERS_INCORRECT;
-   if(InpSupabaseUrl == "" || InpServiceKey == "")
+   serviceKey = InpServiceKey;
+   if(serviceKey == "")
+     {
+      // The key file survives chart/profile resets, unlike EA inputs.
+      int fh = FileOpen("aurum.env", FILE_READ | FILE_TXT | FILE_ANSI);
+      if(fh != INVALID_HANDLE)
+        {
+         while(!FileIsEnding(fh))
+           {
+            string line = FileReadString(fh);
+            if(StringFind(line, "SUPABASE_SERVICE_KEY=") == 0)
+              {
+               serviceKey = StringSubstr(line, 21);
+               StringTrimLeft(serviceKey); StringTrimRight(serviceKey);
+              }
+           }
+         FileClose(fh);
+        }
+     }
+   if(InpSupabaseUrl == "" || serviceKey == "")
       Print("XauSignalEngine: Supabase URL/key empty - running with chart + push alerts only.");
    if(!regime.Init(_Symbol))
       return INIT_FAILED;
@@ -117,10 +138,10 @@ string JStr(string s)
 int Rest(const string method, const string path, const string body, const string prefer, string &response)
   {
    response = "";
-   if(InpSupabaseUrl == "" || InpServiceKey == "")
+   if(InpSupabaseUrl == "" || serviceKey == "")
       return -1;
-   string headers = "apikey: " + InpServiceKey + "\r\n" +
-                    "Authorization: Bearer " + InpServiceKey + "\r\n" +
+   string headers = "apikey: " + serviceKey + "\r\n" +
+                    "Authorization: Bearer " + serviceKey + "\r\n" +
                     "Content-Type: application/json\r\n";
    if(prefer != "") headers += "Prefer: " + prefer + "\r\n";
    char data[], result[];
@@ -272,6 +293,7 @@ string ReasonsJson()
    r += JStr(StringFormat("Asian range %s-%s (%.2f%% of price, within %.2f-%.2f%%)", Num(rangeLo), Num(rangeHi),
                           (rangeHi - rangeLo) / mid * 100.0, InpMinRangePct, InpMaxRangePct)) + ",";
    r += JStr("Breakout of the 03:00-08:00 server range at London open (08:00 server = 14:00 MYT)") + ",";
+   r += JStr(RegimeReason()) + ",";
    r += JStr(StringFormat("Risk %.0f pip, BE at %.1fR, target %.1fR", risk / PipSize(), InpBreakevenR, InpTPR)) + ",";
    r += JStr("Backtest closes open trades at 21:00 server (03:00 MYT)");
    if(newsRisk == "HIGH")
@@ -292,7 +314,34 @@ string StatsJson()
    return "{\"source\":\"backtest 2024-2026\",\"trades\":543,\"win_rate\":47.5,"
           "\"by_year\":[{\"year\":2024,\"win_rate\":48.2,\"pf\":1.12},"
           "{\"year\":2025,\"win_rate\":44.8,\"pf\":1.15},{\"year\":2026,\"win_rate\":49.7,\"pf\":1.46}],"
-          "\"max_drawdown_pct\":23.7}";
+          "\"max_drawdown_pct\":23.7,\"regime\":" + RegimeStatsJson() + "}";
+  }
+
+// London breakout per regime, backtest 2024-01-02 to 2026-11-20 (docs/backtests.md).
+// Only TREND_UP lost money in both halves (PF 0.79 in 2024-25, 0.91 in 2026).
+string RegimeStatsJson()
+  {
+   string name = regimeNow, verdict = "INCONSISTENT";
+   int trades = 0; double win = 0, pf = 0, pfA = 0, pfB = 0;
+   if(name == "RANGING")    { trades = 78;  win = 53.8; pf = 1.90; pfA = 1.11; pfB = 3.64; verdict = "PROFITABLE_BOTH"; }
+   if(name == "MIXED")      { trades = 178; win = 50.6; pf = 1.26; pfA = 1.07; pfB = 1.47; verdict = "PROFITABLE_BOTH"; }
+   if(name == "TREND_UP")   { trades = 168; win = 37.5; pf = 0.82; pfA = 0.79; pfB = 0.91; verdict = "LOSING_BOTH"; }
+   if(name == "HIGH_VOL")   { trades = 57;  win = 59.6; pf = 2.10; pfA = 3.69; pfB = 0.50; }
+   if(name == "TREND_DOWN") { trades = 62;  win = 46.8; pf = 1.45; pfA = 0.68; pfB = 1.57; }
+   if(trades == 0) return "null";
+   return StringFormat("{\"name\":%s,\"trades\":%d,\"win_rate\":%.1f,\"pf\":%.2f,\"pf_2024_25\":%.2f,\"pf_2026\":%.2f,\"verdict\":%s}",
+                       JStr(name), trades, win, pf, pfA, pfB, JStr(verdict));
+  }
+
+string RegimeReason()
+  {
+   if(regimeNow == "TREND_UP")
+      return "Regime TREND_UP: London breakout lost in both 2024-25 (PF 0.79) and 2026 (PF 0.91) - historically better to skip";
+   if(regimeNow == "RANGING" || regimeNow == "MIXED")
+      return "Regime " + regimeNow + ": London breakout was profitable in both 2024-25 and 2026";
+   if(regimeNow == "HIGH_VOL" || regimeNow == "TREND_DOWN")
+      return "Regime " + regimeNow + ": backtest results differ between 2024-25 and 2026 - no reliable edge either way";
+   return "Regime unknown (not enough data)";
   }
 
 double SuggestedLots(double &riskUsd)

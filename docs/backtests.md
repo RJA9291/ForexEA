@@ -97,3 +97,24 @@ Hari dilangkau: julat sempit 69, julat lebar 51, harga terlalu dekat hujung jula
 - Untung dalam ketiga-tiga tahun, tapi 2024–2025 nipis (PF 1.12–1.15); sebahagian besar untung datang dari 2026. Ini selari dengan kajian lain yang dapati strategi ini tak stabil merentasi tempoh.
 - Drawdown 23.7% pada risiko 1% — risiko 0.5% lebih munasabah untuk permulaan.
 - Belum diuji dengan real ticks (data tick InstaForex gagal dimuat turun) dan tanpa slippage sebenar semasa breakout.
+
+## 2026-11-22 — London Breakout mengikut regime pasaran
+
+Pengelas regime: `Include/XauRegime.mqh` (sama dalam backtest dan Signal Engine), dinilai pada 08:00 server dengan bar yang dah tutup.
+HIGH_VOL = ATR D1 > 1.5× purata 100 hari; TREND_UP/DOWN = ADX H4 ≥ 25 + susunan EMA50/200 + harga di sebelah EMA50; RANGING = ADX H4 < 20; MIXED = selain itu.
+Backtest yang sama seperti di atas (2024-01-02 → 2026-11-20, $10,000, risiko 1%, baki akhir $16,856.98 — tak berubah).
+
+| Regime | Trade | Win | PF semua | PF 2024–25 | PF 2026 | Kesimpulan |
+|---|---|---|---|---|---|---|
+| RANGING | 78 | 53.8% | 1.90 | 1.11 (51) | 3.64 (27) | Untung dalam kedua-dua tempoh |
+| MIXED | 178 | 50.6% | 1.26 | 1.07 (112) | 1.47 (66) | Untung dalam kedua-dua tempoh |
+| TREND_UP | 168 | 37.5% | **0.82** | **0.79** (140) | **0.91** (28) | **Rugi dalam kedua-dua tempoh** (−$1,699) |
+| HIGH_VOL | 57 | 59.6% | 2.10 | 3.69 (45) | 0.50 (12) | Tak konsisten |
+| TREND_DOWN | 62 | 46.8% | 1.45 | 0.68 (12) | 1.57 (50) | Tak konsisten |
+
+(Nombor dalam kurungan = bilangan trade.)
+
+### Kesimpulan
+- TREND_UP ialah satu-satunya regime yang rugi secara konsisten. Tanpa hari TREND_UP, untung bersih akan menjadi lebih kurang +$8,556 atas 375 trade — tapi ini dikira selepas melihat data, jadi anggap ia hipotesis untuk diuji ke hadapan, bukan fakta.
+- Signal Engine kini menanda hari TREND_UP sebagai "sejarah lebih baik langkau" dan memaparkan statistik regime dalam app. Ia tak menyekat signal; keputusan kekal pada pengguna.
+- HIGH_VOL dan TREND_DOWN mempunyai sampel kecil dalam satu tempoh, jadi tiada kesimpulan.
