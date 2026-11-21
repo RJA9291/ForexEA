@@ -29,6 +29,10 @@ input double InpMaxSLPct        = 0.60;
 input double InpBreakevenR      = 1.5;
 input double InpTPR             = 2.5;
 
+input group "News window (HIGH impact events from the daily brief)"
+input int    InpNewsBeforeMin   = 30;    // avoid-trading window starts this many minutes before the event
+input int    InpNewsAfterMin    = 30;    // and ends this many minutes after it
+
 input group "Alerts"
 input bool   InpPushNotify      = true;  // MT5 mobile push (Tools > Options > Notifications, MetaQuotes ID)
 
@@ -47,6 +51,12 @@ bool     escapeFlagged = false;
 datetime lastM15 = 0;
 datetime lastPush = 0;
 string   newsRisk = "UNKNOWN";
+datetime newsAt[];                 // HIGH impact event times (GMT)
+string   newsTitle[];
+bool     newsWarned[];
+int      newsFetchHour = -1;
+bool     inNewsWindow = false;
+string   newsWindowText = "";
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -131,6 +141,83 @@ void PushPrice()
    Rest("POST", "/rest/v1/market?on_conflict=symbol", body, "resolution=merge-duplicates", resp);
   }
 
+//| Today's brief is written by the daily news task, keyed by the Malaysian date.
+string JsonField(const string s, const string key, const int from, const int limit)
+  {
+   int p = StringFind(s, "\"" + key + "\":\"", from);
+   if(p < 0 || (limit >= 0 && p > limit)) return "";
+   int start = p + StringLen(key) + 4;
+   int end = StringFind(s, "\"", start);
+   return end > start ? StringSubstr(s, start, end - start) : "";
+  }
+
+void FetchNewsRisk()
+  {
+   MqlDateTime d;
+   TimeToStruct(TimeGMT() + 8 * 3600, d);
+   string resp;
+   string path = StringFormat("/rest/v1/news_briefs?select=risk_level,events&brief_date=eq.%04d-%02d-%02d", d.year, d.mon, d.day);
+   if(Rest("GET", path, "", "", resp) != 200) return;
+   string level = JsonField(resp, "risk_level", 0, -1);
+   newsRisk = level == "" ? "UNKNOWN" : level;
+
+   // Postgres jsonb orders keys by length: at, time, title, impact - so each event's
+   // fields sit between its "at" and the next one.
+   datetime oldAt[]; bool oldWarned[];
+   ArrayCopy(oldAt, newsAt); ArrayCopy(oldWarned, newsWarned);
+   ArrayResize(newsAt, 0); ArrayResize(newsTitle, 0); ArrayResize(newsWarned, 0);
+   int pos = StringFind(resp, "\"at\":\"");
+   while(pos >= 0)
+     {
+      int next = StringFind(resp, "\"at\":\"", pos + 6);
+      string at = JsonField(resp, "at", pos, pos);
+      if(JsonField(resp, "impact", pos, next) == "HIGH" && StringLen(at) >= 19)
+        {
+         string t = StringSubstr(at, 0, 19);
+         StringReplace(t, "-", ".");
+         StringReplace(t, "T", " ");
+         datetime when = StringToTime(t);
+         int n = ArraySize(newsAt);
+         ArrayResize(newsAt, n + 1); ArrayResize(newsTitle, n + 1); ArrayResize(newsWarned, n + 1);
+         newsAt[n] = when;
+         newsTitle[n] = JsonField(resp, "title", pos, next);
+         newsWarned[n] = false;
+         for(int k = 0; k < ArraySize(oldAt); k++) if(oldAt[k] == when) newsWarned[n] = oldWarned[k];
+        }
+      pos = next;
+     }
+  }
+
+void CheckNewsWindow()
+  {
+   MqlDateTime h;
+   TimeToStruct(TimeCurrent(), h);
+   if(h.hour != newsFetchHour) { newsFetchHour = h.hour; FetchNewsRisk(); }
+
+   bool was = inNewsWindow;
+   inNewsWindow = false;
+   datetime now = TimeGMT();
+   for(int i = 0; i < ArraySize(newsAt); i++)
+     {
+      long diff = (long)(newsAt[i] - now);
+      if(diff > InpNewsBeforeMin * 60 || diff < -InpNewsAfterMin * 60) continue;
+      inNewsWindow = true;
+      newsWindowText = StringFormat("AVOID TRADING: %s at %s MYT (window -%d/+%d min)", newsTitle[i],
+                                    TimeToString(newsAt[i] + 8 * 3600, TIME_MINUTES), InpNewsBeforeMin, InpNewsAfterMin);
+      if(!newsWarned[i]) { newsWarned[i] = true; Notify(newsWindowText); }
+     }
+   if(inNewsWindow != was && (state == ST_PENDING || state == ST_ACTIVE))
+      SaveSignal(state == ST_PENDING ? "PENDING" : StatusText(),
+                 (state == ST_ACTIVE ? TradeFields() + "," : "") + NewsEscape());
+  }
+
+string NewsEscape()
+  {
+   if(!inNewsWindow) return "\"escape\":null";
+   return "\"escape\":{\"rule\":\"NEWS_WINDOW\",\"tested\":false,\"advice\":" +
+          JStr(newsWindowText + ". Do not enter new trades; consider protecting open ones.") + "}";
+  }
+
 string TimeToIso(const datetime t)
   {
    MqlDateTime d;
@@ -157,6 +244,10 @@ string ReasonsJson()
    r += JStr("Breakout of the 03:00-08:00 server range at London open (08:00 server = 14:00 MYT)") + ",";
    r += JStr(StringFormat("Risk %.0f pip, BE at %.1fR, target %.1fR", risk / PipSize(), InpBreakevenR, InpTPR)) + ",";
    r += JStr("Backtest closes open trades at 21:00 server (03:00 MYT)");
+   if(newsRisk == "HIGH")
+      r += "," + JStr("News risk HIGH today: major release can whipsaw the breakout (news filter not yet backtested - see Berita tab)");
+   else if(newsRisk == "UNKNOWN")
+      r += "," + JStr("No news brief for today yet");
    return r + "]";
   }
 
@@ -249,6 +340,7 @@ bool BuildRange()
 void CreateSetup()
   {
    if(!BuildRange()) { Comment("XauSignalEngine: no range data today"); state = ST_DONE; return; }
+   FetchNewsRisk();
    double mid = (rangeHi + rangeLo) / 2.0;
    double pct = (rangeHi - rangeLo) / mid * 100.0;
    double pip = PipSize();
@@ -265,7 +357,7 @@ void CreateSetup()
       return;
      }
    state = ST_PENDING;
-   SaveSignal("PENDING", "");
+   SaveSignal("PENDING", inNewsWindow ? NewsEscape() : "");
    Notify(StringFormat("London setup: BUY STOP %s / SELL STOP %s, risk %.0f pip", Num(buyAt), Num(sellAt), risk / pip));
   }
 
@@ -277,8 +369,9 @@ void Trigger(const int dir)
    tp1 = entry + dir * risk * InpBreakevenR;
    tp2 = entry + dir * risk * InpTPR;
    state = ST_ACTIVE;
-   SaveSignal("ACTIVE", TradeFields());
-   Notify(StringFormat("%s triggered @%s SL %s TP %s", dir > 0 ? "BUY" : "SELL", Num(entry), Num(sl), Num(tp2)));
+   SaveSignal("ACTIVE", TradeFields() + (inNewsWindow ? "," + NewsEscape() : ""));
+   Notify(StringFormat("%s triggered @%s SL %s TP %s%s", dir > 0 ? "BUY" : "SELL", Num(entry), Num(sl), Num(tp2),
+                       inNewsWindow ? " - INSIDE NEWS WINDOW, avoid entry" : ""));
   }
 
 void Close(const string status, const double exitPrice)
@@ -365,5 +458,6 @@ void OnTick()
 void OnTimer()
   {
    PushPrice();
+   CheckNewsWindow();   // runs on the timer so warnings fire even when no ticks arrive
   }
 //+------------------------------------------------------------------+

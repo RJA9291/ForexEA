@@ -18,6 +18,8 @@
   --gold:#e0b25a; --gold-soft:#2c2415; --buy:#3fcf86; --buy-soft:#132a1f; --sell:#f06b70; --sell-soft:#2d1618;
   --warn:#f0c04f; --warn-soft:#2c2412; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
+.view{display:flex;flex-direction:column;gap:14px}
 html,body{height:100%}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
@@ -97,7 +99,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-history" class="view" hidden></section>
   <section id="view-news" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v1</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v2</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
@@ -127,7 +129,8 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     ],
     news: {brief_date:new Date().toISOString().slice(0,10), risk_level:"MEDIUM",
       summary:"Contoh: data PMI AS petang ini. Tiada ucapan Fed dijadualkan.",
-      events:[{time:"16:45 MYT", title:"S&P Global PMI (AS)", impact:"MEDIUM"},{time:"23:00 MYT", title:"Jualan rumah baru (AS)", impact:"LOW"}]}
+      events:[{at:new Date(Date.now()+2*3600e3).toISOString(), time:"Contoh +2 jam", title:"CPI AS (contoh)", impact:"HIGH"},
+              {at:new Date(Date.now()+5*3600e3).toISOString(), time:"Contoh +5 jam", title:"Jualan rumah baru (AS)", impact:"LOW"}]}
   };
 
   var data = null, demo = false;
@@ -159,9 +162,24 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       '<p class="small muted" style="margin:0">Drawdown maksimum '+esc(st.max_drawdown_pct)+'% pada risiko 1%. Kebanyakan untung datang dari 2026; 2024 dan 2025 lebih nipis.</p></div>';
   }
 
+  var NEWS_BEFORE_MIN=30, NEWS_AFTER_MIN=30;
+  function newsBanner(){
+    var evs=((data.news&&data.news.events)||[]).filter(function(e){return e.impact==="HIGH"&&e.at;});
+    var now=Date.now(), active=null, next=null;
+    evs.forEach(function(e){
+      var t=new Date(e.at).getTime(), mins=(t-now)/60000;
+      if(mins<=NEWS_BEFORE_MIN&&mins>=-NEWS_AFTER_MIN) active=e;
+      else if(mins>NEWS_BEFORE_MIN&&(!next||t<new Date(next.at).getTime())) next=e;
+    });
+    if(active) return '<div class="escape"><b>Elak trade sekarang.</b> '+esc(active.title)+' pada '+esc(active.time)+'. Jangan masuk trade baru dari '+NEWS_BEFORE_MIN+' minit sebelum hingga '+NEWS_AFTER_MIN+' minit selepas berita.</div>';
+    if(next) return '<div class="banner">Berita berimpak tinggi seterusnya: <b>'+esc(next.title)+'</b> pada '+esc(next.time)+'. Elak trade dari '+NEWS_BEFORE_MIN+' minit sebelumnya.</div>';
+    return "";
+  }
+
   function renderSignal(){
     var s=(data.signals||[])[0], el=document.getElementById("view-signal");
-    if(!s){el.innerHTML='<div class="card"><h1>XAUUSD</h1><p class="muted">Belum ada signal. Setup London dikira setiap hari pada 14:00 waktu Malaysia.</p></div>';return;}
+    var nb=newsBanner();
+    if(!s){el.innerHTML=nb+'<div class="card"><h1>XAUUSD</h1><p class="muted">Belum ada signal. Setup London dikira setiap hari pada 14:00 waktu Malaysia.</p></div>';return;}
     var st=STATUS[s.status]||[s.status,""], side=s.side, html="";
     var sideHtml = side ? '<span class="side '+(side==="BUY"?"buy":"sell")+'">'+(side==="BUY"?"↗ BUY":"↘ SELL")+'</span>' : '<span class="side wait">Dua arah</span>';
     html+='<div class="card"><div class="row"><div><span class="label">'+esc(when(s.created_at))+'</span><h1>XAUUSD</h1></div>'+sideHtml+'</div>';
@@ -188,7 +206,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     if(s.reasons&&s.reasons.length) html+='<div class="reasons"><span class="label">Sebab signal</span><ul>'+s.reasons.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+'</ul></div>';
     html+='</div>';
     html+=statsBlock(s.stats);
-    el.innerHTML=html;
+    el.innerHTML=nb+html;
   }
 
   function renderHistory(){
