@@ -549,21 +549,6 @@ void RefreshClearance()
       Notify("Clearance changed to " + clearStatus + " after Devil's Advocate review");
   }
 
-void CheckEscape()
-  {
-   datetime m15 = iTime(_Symbol, PERIOD_M15, 0);
-   if(m15 == lastM15) return;
-   lastM15 = m15;
-   if(state != ST_ACTIVE || beSet || escapeFlagged) return;
-   double c = iClose(_Symbol, PERIOD_M15, 1);
-   bool backInside = side > 0 ? c < rangeHi : c > rangeLo;
-   if(!backInside) return;
-   escapeFlagged = true;
-   string advice = "M15 closed back inside the Asian range: breakout may be failing. "
-                   "Escape rule A suggests exiting early. NOT YET BACKTESTED - informational only.";
-   SaveSignal("ACTIVE", TradeFields() + ",\"escape\":{\"rule\":\"A_FAILED_BREAKOUT\",\"tested\":false,\"advice\":" + JStr(advice) + "}");
-   NotifyCleared("ESCAPE WARNING: M15 back inside range (rule A, untested)");
-  }
 
 void Track()
   {
@@ -591,7 +576,8 @@ void Track()
       NotifyCleared(StringFormat("TP1 HIT - move SL to break even %s", Num(entry)));
       return;
      }
-   CheckEscape();
+   // Escape rule A ("exit when M15 closes back inside the range") was backtested on 2026-11-22 and
+   // turned +$6,857 into -$30 (it fired on 484 of 543 trades), so the engine no longer issues it.
    if(TimeCurrent() - lastPush >= 15)
       SaveSignal(StatusText(), TradeFields());
   }

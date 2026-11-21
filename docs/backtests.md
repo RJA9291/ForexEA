@@ -118,3 +118,23 @@ Backtest yang sama seperti di atas (2024-01-02 → 2026-11-20, $10,000, risiko 1
 - TREND_UP ialah satu-satunya regime yang rugi secara konsisten. Tanpa hari TREND_UP, untung bersih akan menjadi lebih kurang +$8,556 atas 375 trade — tapi ini dikira selepas melihat data, jadi anggap ia hipotesis untuk diuji ke hadapan, bukan fakta.
 - Signal Engine kini menanda hari TREND_UP sebagai "sejarah lebih baik langkau" dan memaparkan statistik regime dalam app. Ia tak menyekat signal; keputusan kekal pada pengguna.
 - HIGH_VOL dan TREND_DOWN mempunyai sampel kecil dalam satu tempoh, jadi tiada kesimpulan.
+
+## 2026-11-22 — Peraturan escape untuk London Breakout
+
+Sama seperti asas (2024-01-02 → 2026-11-20, $10,000, risiko 1%, kill switch dimatikan). Escape hanya bertindak sebelum SL dipindah ke breakeven. Skrip: `tester/run_london_escape.ps1`.
+
+| Variasi | Peraturan | Baki akhir | Untung | Max DD |
+|---|---|---|---|---|
+| Tanpa escape | SL / TP 2.5R / BE 1.5R / tutup 21:00 | $16,856.98 | **+$6,856.98** | 23.7% |
+| A. Breakout gagal | Keluar bila M15 tutup semula dalam julat Asia | $9,969.60 | **−$30.40** | 11.5% |
+| B. Time stop | Keluar jika < 0.5R selepas 3 jam | — | **Tidak siap** | — |
+| C. Stop-and-reverse | A, kemudian buka arah bertentangan sekali | $1,028.13 | **−$8,971.87** | 89.7% |
+
+- **A** tercetus pada 484 daripada 543 trade: hampir setiap breakout emas kembali ke julat seketika sebelum bergerak. Keluar awal memotong trade yang akhirnya menang (win rate jatuh ke ~10%).
+- **C** menggandakan kerugian: arah terbalik juga kembali melawan.
+- **B** tergantung pada data 2024-06-11 selama 2 jam; ujian C seterusnya hanya bermula 4 jam selepas dilancarkan. Corak ini menunjukkan komputer tidur pada waktu malam, bukan ralat peraturan. Perlu diuji semula.
+
+### Kesimpulan
+- Jangan guna escape A atau C. Peraturan asal (biarkan SL/TP/BE bekerja) jauh lebih baik.
+- Amaran "breakout gagal" telah dibuang dari Signal Engine dan app kerana mengikutnya merugikan.
+- Tiada syarat 5 ("kualiti breakout") untuk Clearance Gate: tiada peraturan escape yang lulus ujian.
