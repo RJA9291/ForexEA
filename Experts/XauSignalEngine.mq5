@@ -9,6 +9,8 @@
 #property link      "https://github.com/RJA9291/ForexEA"
 #property version   "1.00"
 
+#include <XauRegime.mqh>
+
 input group "Supabase (keep the service key out of the repo)"
 input string InpSupabaseUrl     = "https://ukzbdszndqvgycsnjeof.supabase.co";   // also add under Tools > Options > Expert Advisors > Allow WebRequest
 input string InpServiceKey      = "";    // service_role key: paste here only, never commit
@@ -56,6 +58,8 @@ string   newsTitle[];
 bool     newsWarned[];
 int      newsFetchHour = -1;
 bool     inNewsWindow = false;
+CXauRegime regime;
+string   regimeNow = "";
 string   fundBias = "";            // BULLISH / NEUTRAL / BEARISH from the fundamental agent
 string   fundConf = "";
 string   newsWindowText = "";
@@ -67,6 +71,8 @@ int OnInit()
       return INIT_PARAMETERS_INCORRECT;
    if(InpSupabaseUrl == "" || InpServiceKey == "")
       Print("XauSignalEngine: Supabase URL/key empty - running with chart + push alerts only.");
+   if(!regime.Init(_Symbol))
+      return INIT_FAILED;
    EventSetTimer(MathMax(1, InpPriceSeconds));
    return INIT_SUCCEEDED;
   }
@@ -74,6 +80,7 @@ int OnInit()
 void OnDeinit(const int reason)
   {
    EventKillTimer();
+   regime.Release();
    Comment("");
   }
 
@@ -190,6 +197,15 @@ void FetchNewsRisk()
      }
   }
 
+void UpdateRegime()
+  {
+   regimeNow = regime.Classify();
+   string resp;
+   // PATCH, not upsert: an insert attempt would fail the NOT NULL bid/ask columns.
+   Rest("PATCH", "/rest/v1/market?symbol=eq." + _Symbol,
+        "{\"regime\":" + JStr(regimeNow) + ",\"regime_detail\":" + regime.DetailJson() + "}", "", resp);
+  }
+
 void FetchFundamental()
   {
    fundBias = ""; fundConf = "";
@@ -206,7 +222,7 @@ void CheckNewsWindow()
   {
    MqlDateTime h;
    TimeToStruct(TimeCurrent(), h);
-   if(h.hour != newsFetchHour) { newsFetchHour = h.hour; FetchNewsRisk(); }
+   if(h.hour != newsFetchHour) { newsFetchHour = h.hour; FetchNewsRisk(); UpdateRegime(); }
 
    bool was = inNewsWindow;
    inNewsWindow = false;
@@ -297,7 +313,8 @@ string BasePayload()
   {
    double riskUsd;
    double lots = SuggestedLots(riskUsd);
-   return StringFormat("\"symbol\":%s,\"strategy\":\"LONDON_BREAKOUT\",\"buy_entry\":%s,\"sell_entry\":%s,"
+   return StringFormat("\"regime\":%s,", JStr(regimeNow)) +
+          StringFormat("\"symbol\":%s,\"strategy\":\"LONDON_BREAKOUT\",\"buy_entry\":%s,\"sell_entry\":%s,"
                        "\"risk_pips\":%.1f,\"lots\":%.2f,\"risk_usd\":%.2f,\"reasons\":%s,\"stats\":%s,\"news_risk\":%s",
                        JStr(_Symbol), Num(buyAt), Num(sellAt), risk / PipSize(), lots, riskUsd,
                        ReasonsJson(), StatsJson(), JStr(newsRisk));
@@ -361,6 +378,7 @@ void CreateSetup()
    if(!BuildRange()) { Comment("XauSignalEngine: no range data today"); state = ST_DONE; return; }
    FetchNewsRisk();
    FetchFundamental();
+   UpdateRegime();
    double mid = (rangeHi + rangeLo) / 2.0;
    double pct = (rangeHi - rangeLo) / mid * 100.0;
    double pip = PipSize();
