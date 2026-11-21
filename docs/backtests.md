@@ -56,3 +56,21 @@ Jarak SL: min 33, median 50, max 60 pip. Spread 8 pip = ~16% daripada SL median.
 - Versi ini **rugi**: 38 kalah daripada 58 (66%), dan checkpoint tak cukup untuk menampung.
 - Peraturan escape berfungsi seperti direka: losing streak hentikan 81 penilaian, kill switch hentikan EA sebelum kerugian melebihi 20%.
 - Jangan jalankan versi ini di akaun sebenar. Perlu reka semula entry (contoh: penapis sesi London–NY sahaja, SL lebih ketat dengan broker spread rendah) dan uji semula.
+
+## 2026-11-21 — XauScalper v2 (reka semula), perbandingan variasi
+
+Model: Every tick (dijana dari M1). Deposit $10,000, risiko 1%, kill switch dimatikan supaya setiap variasi diukur sepanjang tempoh.
+Skrip: `tester/run_scalper_variants.ps1`. Nota: Strategy Tester guna semula input run sebelumnya untuk input yang tak dinyatakan — skrip kini nyatakan semua input yang diuji.
+
+| Variasi | ADX ≥22 | HA kuat | Sesi (server) | SL swing / maks | 3 bulan (Ogos–Nov 2026) | 1 tahun (Nov 2025–Nov 2026) |
+|---|---|---|---|---|---|---|
+| A v2 default | ya | ya | 15–19 | 3 / 45 pip | 1 trade, −0.9% | 1 trade, −0.9% |
+| B tanpa ADX | tidak | ya | 15–19 | 3 / 45 | 1 trade, −0.9% | 1 trade, −0.9% |
+| C tanpa HA kuat | ya | tidak | 15–19 | 3 / 45 | 6 trade, −2.7% | 17 trade, −7.5% |
+| D sesi luas | ya | ya | 9–21 | 3 / 45 | 4 trade, −1.7% | 12 trade, −1.6% |
+| E tetapan v1 | tidak | tidak | 9–21 | 5 / 60 | 112 trade, −24.6% | 357 trade, −47.4% |
+
+### Kesimpulan
+- **Tiada variasi yang untung.** Penapis v2 kurangkan kerugian hanya dengan mengurangkan bilangan trade, bukan dengan memilih trade yang lebih baik.
+- Entry "pullback EMA20 + flip Heikin Ashi" tiada kelebihan pada kos InstaForex (spread 8 pip). Menambah lebih banyak penapis pada entry ini berisiko curve-fitting.
+- Ujian out-of-sample tidak dijalankan kerana tiada variasi yang layak.
