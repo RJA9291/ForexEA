@@ -27,6 +27,7 @@ create table if not exists public.signals (
   tp1           numeric,
   tp2           numeric,
   tp3           numeric,
+  risk_pips     numeric,              -- entry-to-SL distance (1 pip = 0.10)
   lots          numeric,
   risk_usd      numeric,              -- loss at SL for the suggested lot size
   running_pips  numeric,
