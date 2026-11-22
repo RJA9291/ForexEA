@@ -8,7 +8,7 @@ cd "$root" || exit 0
 
 # ---------------- CONFIG (edit per project) ----------------
 SRC="app.html"                 # the self-contained fragment: <title><style>…markup…<script>
-TITLE="Aurum Desk"
+TITLE="fefefefefelaiiiiiii"
 THEME_LIGHT="#ffffff"
 THEME_DARK="#171a1d"
 BG_LIGHT="#f3f1ec"

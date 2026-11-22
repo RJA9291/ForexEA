@@ -1,5 +1,5 @@
 // Network-first for pages (updates show), cache-first for static assets. Never cache Supabase data.
-const CACHE = "aurum-v10";
+const CACHE = "aurum-v11";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png", "./icon.svg"];
 self.addEventListener("install", e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS))); });
 self.addEventListener("activate", e => {
