@@ -1,9 +1,8 @@
 # Claude Code local settings
 .claude/settings.local.json
 
-# MetaTrader logs / tester output
+# MetaTrader logs (the project's tester/ folder holds configs and scripts and is tracked)
 *.log
-Tester/
 
 # Secrets
 .env
