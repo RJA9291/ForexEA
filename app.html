@@ -83,6 +83,24 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
 .tab svg{width:20px;height:20px}
 .tab[aria-selected="true"]{color:var(--gold)}
 .foot{font-size:12px;color:var(--muted);text-align:center}
+/* Office floor: a deliberately dark "trading floor" panel in both themes, colours set explicitly. */
+.floor{background:radial-gradient(120% 80% at 50% 0%,#16213a 0%,#0b1220 60%);border:1px solid #1f2b42;border-radius:16px;padding:14px 12px 12px;display:flex;flex-direction:column;gap:10px;color:#e6ebf3}
+.floor-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.floor-title{font-family:var(--f-display);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px;display:flex;align-items:center;gap:8px}
+.floor-time{font-family:var(--f-num);font-size:12px;color:#9aa6bd}
+.floor-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.floor-kpi div{background:#111a2b;border:1px solid #1f2b42;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.floor-kpi b{font-family:var(--f-num);font-size:18px;line-height:1.1;overflow-wrap:anywhere}
+.floor-kpi span{font-size:10.5px;color:#9aa6bd;line-height:1.2}
+.floor-svg{width:100%;height:auto;display:block;font-family:var(--f-body)}
+.floor-svg .desk{cursor:pointer;outline:none}
+.floor-svg .desk:hover polygon,.floor-svg .desk:focus-visible polygon{filter:brightness(1.12)}
+.floor-legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:#9aa6bd}
+.dot-s{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.agent-card b{font-family:var(--f-body);font-size:15px}
+.agent-card.flash{outline:2px solid var(--gold);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){.floor-svg .pulse{animation:ring 1.8s ease-out infinite;transform-box:fill-box;transform-origin:center}@keyframes ring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.9)}}}
+@media (max-width:380px){.floor-kpi{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:380px){.stats{grid-template-columns:1fr 1fr}.both{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:no-preference){.dot.live{animation:pulse 2s infinite}@keyframes pulse{50%{opacity:.4}}}
 </style>
@@ -100,7 +118,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-news" class="view" hidden></section>
   <section id="view-office" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v11</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v12</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
@@ -355,63 +373,176 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     return t.mins<dueMin+20?"wait":"late";
   }
 
-  function agentCard(name, kind, status, line, meta){
-    var s=ST[status]||[status,""];
-    return '<div class="lv" style="gap:6px"><div class="row"><span><b>'+esc(name)+'</b> <span class="small muted">· '+esc(kind)+'</span></span><span class="chip '+s[1]+'">'+esc(s[0])+'</span></div>'+
-      '<span>'+esc(line)+'</span><small class="muted">'+esc(meta)+'</small></div>';
+  // Status buckets used by the floor plan: needs action / working / resting.
+  function bucket(st){ return st==="late"||st==="down"?"act":st==="done"||st==="live"?"work":"rest"; }
+  var BUCKET={act:["Perlu tindakan","#f06b70"],work:["Sedang bekerja","#3fcf86"],rest:["Rehat","#7c8aa5"]};
+
+  function agentCard(a){
+    var s=ST[a.status]||[a.status,""], b=BUCKET[bucket(a.status)];
+    return '<div class="lv agent-card" id="agent-'+a.id+'" style="gap:6px"><div class="row"><span><i class="dot-s" style="background:'+b[1]+'"></i><b>'+esc(a.name)+'</b> <span class="small muted">· '+esc(a.kind)+'</span></span><span class="chip '+s[1]+'">'+esc(s[0])+'</span></div>'+
+      '<span>'+esc(a.line)+'</span><small class="muted">'+esc(a.meta)+'</small></div>';
   }
 
-  function renderOffice(){
-    var t=myt(), weekday=t.dow>=1&&t.dow<=5;
+  function officeAgents(){
+    var t=myt(), weekday=t.dow>=1&&t.dow<=5, A=[];
     var sig=(data.signals||[])[0], todaySig=sig&&new Date(new Date(sig.created_at).getTime()+8*3600e3).toISOString().slice(0,10)===t.date?sig:null;
-    var m=data.market, n=data.news, f=data.fund, j=data.journal, cards=[];
+    var m=data.market, n=data.news, f=data.fund, j=data.journal;
+
+    var nst=dailyStatus(n&&n.brief_date,8*60+30,t);
+    A.push({id:"news",zone:"intel",name:"Ejen Berita",short:"Berita",kind:"AI",status:nst,
+      line:n&&n.brief_date===t.date?"Risiko "+n.risk_level+" · "+((n.events||[]).filter(function(e){return e.impact==="HIGH";}).map(function(e){return e.title+" "+e.time;}).join(", ")||"tiada berita TINGGI"):"Belum ada laporan hari ini",
+      meta:"Dijadualkan 08:30 hari bekerja"+(n?" · terakhir "+n.brief_date:"")});
+
+    var fst=dailyStatus(f&&f.brief_date,13*60+15,t);
+    A.push({id:"fund",zone:"intel",name:"Ejen Fundamental",short:"Fundamental",kind:"AI",status:fst,
+      line:f&&f.brief_date===t.date?"Bias "+f.bias+" (keyakinan "+f.confidence+")":"Belum ada analisis hari ini",
+      meta:"Dijadualkan 13:15 hari bekerja"+(f?" · terakhir "+f.brief_date:"")});
 
     // Signal engine heartbeat: the price row is refreshed every few seconds while MT5 runs.
     var beat=m?(Date.now()-new Date(m.updated_at).getTime())/1000:1e9;
-    cards.push(agentCard("Signal Engine","MT5, kod",beat<120?"live":"down",
-      beat<120?"Harga dan regime dihantar dari MT5":"Tiada data dari MT5. Pastikan MT5 terbuka dan laptop tidak tidur.",
-      "Kemas kini terakhir "+(m?ago(m.updated_at):"tiada")+" · setup London 14:00"));
-
-    var nst=dailyStatus(n&&n.brief_date,8*60+30,t);
-    cards.push(agentCard("Ejen Berita","AI",nst,
-      n&&n.brief_date===t.date?"Risiko "+n.risk_level+" · "+((n.events||[]).filter(function(e){return e.impact==="HIGH";}).map(function(e){return e.title+" "+e.time;}).join(", ")||"tiada berita TINGGI"):"Belum ada laporan hari ini",
-      "Dijadualkan 08:30 hari bekerja"+(n?" · terakhir "+n.brief_date:"")));
-
-    var fst=dailyStatus(f&&f.brief_date,13*60+15,t);
-    cards.push(agentCard("Ejen Fundamental","AI",fst,
-      f&&f.brief_date===t.date?"Bias "+f.bias+" (keyakinan "+f.confidence+")":"Belum ada analisis hari ini",
-      "Dijadualkan 13:15 hari bekerja"+(f?" · terakhir "+f.brief_date:"")));
+    A.push({id:"engine",zone:"analysis",name:"Signal Engine",short:"Signal Engine",kind:"MT5, kod",status:beat<120?"live":"down",
+      line:beat<120?"Harga dan regime dihantar dari MT5":"Tiada data dari MT5. Pastikan MT5 terbuka dan laptop tidak tidur.",
+      meta:"Kemas kini terakhir "+(m?ago(m.updated_at):"tiada")+" · setup London 14:00"});
 
     var rd=m&&m.regime_detail;
-    cards.push(agentCard("Ejen Regime","kod, backtest",m&&m.regime?"live":"wait",
-      m&&m.regime?"Regime "+(REGIME[m.regime]||m.regime)+(rd?" · ADX H4 "+rd.adx_h4+" · ATR D1 "+rd.atr_d1_ratio+"×":""):"Regime belum dikira",
-      m&&m.regime==="TREND_UP"?"Trend naik: backtest rugi dalam kedua-dua tempoh":"Dikemas kini setiap jam oleh Signal Engine"));
+    A.push({id:"regime",zone:"analysis",name:"Ejen Regime",short:"Regime",kind:"kod, backtest",status:m&&m.regime?"live":"wait",
+      line:m&&m.regime?"Regime "+(REGIME[m.regime]||m.regime)+(rd?" · ADX H4 "+rd.adx_h4+" · ATR D1 "+rd.atr_d1_ratio+"×":""):"Regime belum dikira",
+      meta:m&&m.regime==="TREND_UP"?"Trend naik: backtest rugi dalam kedua-dua tempoh":"Dikemas kini setiap jam oleh Signal Engine"});
 
     var c=todaySig&&todaySig.critique, noSetup=todaySig&&(todaySig.status==="NO_TRADE");
-    var dst=c?"done":!weekday?"off":noSetup?"off":t.mins<14*60+45?"wait":todaySig?"late":"wait";
-    cards.push(agentCard("Devil's Advocate","AI",dst,
-      c?"Amaran "+c.caution+" · "+c.summary:noSetup?"Tiada setup hari ini, tiada kritikan":"Belum ada kritikan hari ini",
-      "Dijadualkan 14:25 hari bekerja, selepas setup 14:00"));
+    A.push({id:"devil",zone:"risk",name:"Devil's Advocate",short:"Devil's Advocate",kind:"AI",
+      status:c?"done":!weekday?"off":noSetup?"off":t.mins<14*60+45?"wait":todaySig?"late":"wait",
+      line:c?"Amaran "+c.caution+" · "+c.summary:noSetup?"Tiada setup hari ini, tiada kritikan":"Belum ada kritikan hari ini",
+      meta:"Dijadualkan 14:25 hari bekerja, selepas setup 14:00"});
+
+    var mm=sig&&sig.stats&&sig.stats.mm;
+    A.push({id:"mm",zone:"risk",name:"Money Management",short:"Money Mgmt",kind:"kod, backtest",status:mm?"live":"wait",
+      line:mm?"Risiko "+Number(mm.risk_pct).toFixed(2)+"% · "+(MM[mm.mode]||mm.mode):"Dikira bila setup keluar",
+      meta:mm?mm.closed+" signal ditutup · tetingkap "+mm.window:"Penapis kurva ekuiti 20 signal"});
 
     var cl=todaySig&&todaySig.clearance, k=cl&&CLEAR[cl.status];
     var failed=cl?(cl.checks||[]).filter(function(x){return !x.pass;}).map(function(x){return CHECK_MS[x.name]||x.name;}):[];
-    cards.push(agentCard("Clearance Gate","kod",cl?"done":!weekday?"off":"wait",
-      cl?k[0]+(cl.stage==="PRE_TRIGGER"?" (sebelum trigger)":"")+(failed.length?" · gagal: "+failed.join(", "):" · semua syarat lulus"):"Belum ada keputusan hari ini",
-      "Dikira pada 14:00, 14:25 dan bila signal trigger"));
-
-    var mm=sig&&sig.stats&&sig.stats.mm;
-    cards.push(agentCard("Money Management","kod, backtest",mm?"live":"wait",
-      mm?"Risiko "+Number(mm.risk_pct).toFixed(2)+"% · "+(MM[mm.mode]||mm.mode):"Dikira bila setup keluar",
-      mm?mm.closed+" signal ditutup · tetingkap "+mm.window:"Penapis kurva ekuiti 20 signal"));
+    A.push({id:"gate",zone:"decision",name:"Clearance Gate",short:"Clearance",kind:"kod",status:cl?"done":!weekday?"off":"wait",
+      line:cl?k[0]+(cl.stage==="PRE_TRIGGER"?" (sebelum trigger)":"")+(failed.length?" · gagal: "+failed.join(", "):" · semua syarat lulus"):"Belum ada keputusan hari ini",
+      meta:"Dikira pada 14:00, 14:25 dan bila signal trigger", verdict:cl&&cl.status});
 
     var sat=t.dow===6, jst=j&&new Date(j.created_at||0).getTime()>Date.now()-6*86400e3?"done":(sat&&t.mins>=10*60+30?"late":"wait");
-    cards.push(agentCard("Ejen Jurnal","AI",jst,
-      j?"Minggu "+j.week_start+": "+j.summary:"Belum ada jurnal",
-      "Dijadualkan Sabtu 10:00"));
+    A.push({id:"journal",zone:"decision",name:"Ejen Jurnal",short:"Jurnal",kind:"AI",status:jst,
+      line:j?"Minggu "+j.week_start+": "+j.summary:"Belum ada jurnal",meta:"Dijadualkan Sabtu 10:00"});
+    return A;
+  }
 
-    var html='<div class="card"><div class="row"><h2>AI Trading Office</h2><span class="small muted">'+esc(t.date)+' · '+hhmm(t.mins)+' MYT</span></div>'+
+  // ---- Isometric trading floor (SVG). Floor is 12 x 10 tiles; four zones, two desks each. ----
+  var ISO_S=26, ISO_C=ISO_S*0.866, ISO_H=ISO_S*0.5;
+  function iso(x,y,z){ return [(x-y)*ISO_C, (x+y)*ISO_H-(z||0)*ISO_S]; }
+  function pts(list){ return list.map(function(p){ var q=iso(p[0],p[1],p[2]); return q[0].toFixed(1)+","+q[1].toFixed(1); }).join(" "); }
+  function poly(list, fill, extra){ return '<polygon points="'+pts(list)+'" fill="'+fill+'"'+(extra||"")+'/>'; }
+  // Box with its two viewer-facing sides (y+d and x+w) and top.
+  function box(x,y,z,w,d,h,top,left,right){
+    return poly([[x,y+d,z],[x+w,y+d,z],[x+w,y+d,z+h],[x,y+d,z+h]],left)+
+           poly([[x+w,y,z],[x+w,y+d,z],[x+w,y+d,z+h],[x+w,y,z+h]],right)+
+           poly([[x,y,z+h],[x+w,y,z+h],[x+w,y+d,z+h],[x,y+d,z+h]],top);
+  }
+  var ZONES={
+    intel:   {x:0.3,y:0.3,w:5.4,h:4.4,label:"INTELLIGENCE",tint:"#3b82f6"},
+    analysis:{x:6.3,y:0.3,w:5.4,h:4.4,label:"ANALISIS",tint:"#e0b25a"},
+    risk:    {x:0.3,y:5.3,w:5.4,h:4.4,label:"RISIKO",tint:"#f06b70"},
+    decision:{x:6.3,y:5.3,w:5.4,h:4.4,label:"KEPUTUSAN",tint:"#3fcf86"}
+  };
+  var DESK_SLOTS=[[1.1,1.0],[3.3,2.6]];
+
+  function deskSVG(a, x, y, tint, idx){
+    var w=1.7,d=0.9,h=0.42, out='<g class="desk" data-agent="'+a.id+'" tabindex="0" role="button" aria-label="'+esc(a.name)+'">';
+    var px=x+0.85, py=y+d+0.55, b=bucket(a.status), col=BUCKET[b][1];
+    out+='<ellipse cx="'+iso(px,py,0)[0].toFixed(1)+'" cy="'+(iso(px,py,0)[1]+2).toFixed(1)+'" rx="15" ry="6" fill="#000" opacity=".28"/>';
+    out+=box(x,y,0,w,d,h,"#e8edf5","#b7c1d1","#cfd7e3");                         // desk
+    out+=box(x+0.4,y+0.12,h,0.95,0.07,0.6,"#1b2333","#0d131f","#141c2b");          // monitor
+    // Candles on the monitor face: the screen glows in the agent's status colour.
+    var screenCol=b==="act"?"#3a1418":b==="work"?"#0f2a20":"#111827";
+    out+=poly([[x+0.45,y+0.19,h+0.06],[x+1.3,y+0.19,h+0.06],[x+1.3,y+0.19,h+0.56],[x+0.45,y+0.19,h+0.56]],screenCol);
+    if(b!=="rest"){
+      var seq=[0.18,0.3,0.24,0.38,0.32,0.44], up=["#3fcf86","#3fcf86","#f06b70","#3fcf86","#f06b70","#3fcf86"];
+      for(var i=0;i<seq.length;i++){
+        var cx=x+0.55+i*0.13, lo=h+0.12+seq[i]*0.7, hi=lo+0.12, p1=iso(cx,y+0.19,lo), p2=iso(cx,y+0.19,hi);
+        out+='<line x1="'+p1[0].toFixed(1)+'" y1="'+p1[1].toFixed(1)+'" x2="'+p2[0].toFixed(1)+'" y2="'+p2[1].toFixed(1)+'" stroke="'+up[i]+'" stroke-width="2.4" stroke-linecap="round"/>';
+      }
+    }
+    // Agent seen from behind, sitting at the desk.
+    var body=iso(px,py,0.55), head=iso(px,py,1.08), stool=iso(px,py,0.28);
+    out+='<rect x="'+(stool[0]-7).toFixed(1)+'" y="'+(stool[1]-2).toFixed(1)+'" width="14" height="5" rx="2" fill="#2a3446"/>';
+    out+='<path d="M'+(body[0]-8).toFixed(1)+','+(body[1]+7).toFixed(1)+' q0,-15 8,-15 q8,0 8,15 z" fill="'+tint+'"/>';
+    out+='<circle cx="'+head[0].toFixed(1)+'" cy="'+head[1].toFixed(1)+'" r="5.6" fill="#f2c6a0"/>';
+    out+='<path d="M'+(head[0]-5.8).toFixed(1)+','+(head[1]-0.5).toFixed(1)+' a5.8,5.8 0 0 1 11.6,0 q-5.8,-3 -11.6,0z" fill="#2b2118"/>';
+    // Status badge.
+    var bd=iso(px,py,1.75), mark=b==="act"?"!":b==="work"?"✓":"z";
+    if(b==="work") out+='<circle class="pulse" cx="'+bd[0].toFixed(1)+'" cy="'+bd[1].toFixed(1)+'" r="9" fill="none" stroke="'+col+'" stroke-width="2"/>';
+    out+='<circle cx="'+bd[0].toFixed(1)+'" cy="'+bd[1].toFixed(1)+'" r="8.5" fill="'+col+'" stroke="#0b1220" stroke-width="1.5"/>';
+    out+='<text x="'+bd[0].toFixed(1)+'" y="'+(bd[1]+3.6).toFixed(1)+'" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0b1220">'+mark+'</text>';
+    if(b==="rest") out+='<text x="'+(bd[0]+12).toFixed(1)+'" y="'+(bd[1]-4).toFixed(1)+'" font-size="8" fill="#7c8aa5" font-weight="600">z z</text>';
+    out+='</g>';
+    // Name tag goes in the label layer so desks drawn in front never clip it.
+    var tag=iso(x+w/2+0.3,y+d+1.25,0), label=a.short, tw=label.length*6+16;
+    var t2='<g class="desk" data-agent="'+a.id+'"><rect x="'+(tag[0]-tw/2).toFixed(1)+'" y="'+(tag[1]-8.5).toFixed(1)+'" width="'+tw.toFixed(1)+'" height="17" rx="8.5" fill="#0b1220" fill-opacity=".9" stroke="'+tint+'" stroke-opacity=".7"/>'+
+      '<text x="'+tag[0].toFixed(1)+'" y="'+(tag[1]+3.6).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="600" fill="#e6ebf3">'+esc(label)+'</text></g>';
+    return {body:out, tag:t2};
+  }
+
+  function plantSVG(x,y){
+    var pot=box(x,y,0,0.4,0.4,0.32,"#9a6a3c","#6e4a28","#835a32"), c=iso(x+0.2,y+0.2,0.62);
+    return pot+'<circle cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" r="8" fill="#2f9e5f"/><circle cx="'+(c[0]+4).toFixed(1)+'" cy="'+(c[1]-4).toFixed(1)+'" r="5.5" fill="#45c07a"/>';
+  }
+
+  function floorSVG(agents){
+    var o='<svg class="floor-svg" viewBox="-236 -46 516 342" role="img" aria-label="Pelan lantai AI Trading Office">', labels=[];
+    o+=poly([[0,0,0],[12,0,0],[12,10,0],[0,10,0]],"#141d2e",' stroke="#25324a" stroke-width="1.5"');
+    o+=box(0,10,0,12,0.25,0.18,"#1c2638","#0d1422","#131b2b")+box(12,0,0,0.25,10.25,0.18,"#1c2638","#0d1422","#131b2b");
+    // Ticker wall along the back edge, drawn first so every desk sits in front of it.
+    // matrix(0.866 0.5 0 1): text runs along the floor's x axis while staying upright.
+    o+=poly([[0.6,0,0.15],[11.4,0,0.15],[11.4,0,1.45],[0.6,0,1.45]],"#0a0f1a",' stroke="#2c3a55"');
+    var tk=iso(1.0,0,0.62);
+    o+='<text transform="matrix(0.866 0.5 0 1 '+tk[0].toFixed(1)+' '+tk[1].toFixed(1)+')" font-size="12" font-weight="700" letter-spacing="1.5" fill="#e0b25a" font-family="IBM Plex Mono,monospace">XAUUSD · LONDON BREAKOUT · 14:00 MYT</text>';
+    var units=[];
+    Object.keys(ZONES).forEach(function(k){
+      var z=ZONES[k], ag=agents.filter(function(a){return a.zone===k;});
+      o+=poly([[z.x,z.y,0.01],[z.x+z.w,z.y,0.01],[z.x+z.w,z.y+z.h,0.01],[z.x,z.y+z.h,0.01]],z.tint,' fill-opacity=".10" stroke="'+z.tint+'" stroke-opacity=".55" stroke-width="1.6"');
+      ag.forEach(function(a,i){
+        var dsk=deskSVG(a,z.x+DESK_SLOTS[i][0],z.y+DESK_SLOTS[i][1],z.tint,i);
+        units.push({depth:z.x+DESK_SLOTS[i][0]+z.y+DESK_SLOTS[i][1], svg:dsk.body});
+        labels.push(dsk.tag);
+      });
+      // Zone sign sits on the zone's left corner, in the label layer.
+      var act=ag.filter(function(a){return bucket(a.status)==="act";}).length;
+      var p=iso(z.x+0.15,z.y+z.h-0.15,0), txt=z.label, tw=txt.length*6.6+16;
+      labels.push('<g><rect x="'+(p[0]-4).toFixed(1)+'" y="'+(p[1]-21).toFixed(1)+'" width="'+tw.toFixed(1)+'" height="18" rx="5" fill="'+z.tint+'"/>'+
+        '<text x="'+(p[0]+tw/2-4).toFixed(1)+'" y="'+(p[1]-8.5).toFixed(1)+'" text-anchor="middle" font-size="10" font-weight="700" letter-spacing=".8" fill="#0b1220">'+txt+'</text>'+
+        (act?'<circle cx="'+(p[0]+tw-4).toFixed(1)+'" cy="'+(p[1]-21).toFixed(1)+'" r="7" fill="#f06b70" stroke="#0b1220" stroke-width="1.5"/><text x="'+(p[0]+tw-4).toFixed(1)+'" y="'+(p[1]-17.6).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#0b1220">'+act+'</text>':"")+'</g>');
+    });
+    [[5.85,0.6],[0.5,9.2],[11.2,4.9],[5.9,9.3]].forEach(function(p){ units.push({depth:p[0]+p[1], svg:plantSVG(p[0],p[1])}); });
+    units.sort(function(a,b){return a.depth-b.depth;});
+    o+=units.map(function(u){return u.svg;}).join("")+labels.join("");
+    return o+'</svg>';
+  }
+
+  var lastOfficeHtml="";
+  function renderOffice(){
+    var t=myt(), agents=officeAgents();
+    var counts={act:0,work:0,rest:0}; agents.forEach(function(a){counts[bucket(a.status)]++;});
+    var gate=agents.filter(function(a){return a.id==="gate";})[0], v=gate.verdict&&CLEAR[gate.verdict];
+    var html='<div class="floor">'+
+      '<div class="floor-head"><span class="floor-title"><i class="dot live"></i>AI Trading Office</span><span class="floor-time">'+esc(t.date)+' · '+hhmm(t.mins)+' MYT</span></div>'+
+      '<div class="floor-kpi">'+
+        '<div><b style="color:#f06b70">'+counts.act+'</b><span>Perlu tindakan</span></div>'+
+        '<div><b style="color:#3fcf86">'+counts.work+'</b><span>Sedang bekerja</span></div>'+
+        '<div><b style="color:#7c8aa5">'+counts.rest+'</b><span>Rehat</span></div>'+
+        '<div><b style="color:'+(v?(v[1]==="buy"?"#3fcf86":v[1]==="sell"?"#f06b70":"#f0c04f"):"#7c8aa5")+'">'+(v?esc(v[0]):"—")+'</b><span>Clearance hari ini</span></div>'+
+      '</div>'+floorSVG(agents)+
+      '<div class="floor-legend"><span><i class="dot-s" style="background:#f06b70"></i>Perlu tindakan</span><span><i class="dot-s" style="background:#3fcf86"></i>Sedang bekerja</span><span><i class="dot-s" style="background:#7c8aa5"></i>Rehat (tiada tugas)</span></div>'+
+      '</div>'+
+      '<div class="card"><div class="row"><h2>Status ejen</h2><span class="small muted">Ketik meja untuk butiran</span></div>'+
       '<p class="small muted" style="margin:0">Ejen AI memberi konteks; keputusan signal dibuat oleh peraturan yang diuji. Anda yang buat keputusan akhir dan masuk trade.</p>'+
-      cards.join("")+'</div>';
+      agents.map(agentCard).join("")+'</div>';
+    if(html===lastOfficeHtml) return;   // avoid restarting animations on every 5-second poll
+    lastOfficeHtml=html;
     document.getElementById("view-office").innerHTML=html;
   }
 
@@ -446,6 +577,12 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       var t=b.getAttribute("data-copy");
       var done=function(){b.textContent="Disalin";setTimeout(function(){b.textContent="Salin";},1200);};
       if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){selectText(b);});}else selectText(b);
+      return;
+    }
+    var desk=e.target.closest(".desk");
+    if(desk){
+      var card=document.getElementById("agent-"+desk.getAttribute("data-agent"));
+      if(card){ card.scrollIntoView({behavior:"smooth",block:"center"}); card.classList.add("flash"); setTimeout(function(){card.classList.remove("flash");},1600); }
       return;
     }
     var tab=e.target.closest(".tab");
