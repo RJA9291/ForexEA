@@ -98,7 +98,7 @@ h2{font-size:15px;letter-spacing:.02em}
 .muted{color:var(--muted)}
 .small{font-size:13px}
 nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:6}
-.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 .tab{border:0;background:transparent;color:var(--muted);font:600 12px var(--f-body);padding:12px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
 .tab svg{width:20px;height:20px}
 .tab[aria-selected="true"]{color:var(--gold)}
@@ -118,14 +118,16 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-signal" class="view"></section>
   <section id="view-history" class="view" hidden></section>
   <section id="view-news" class="view" hidden></section>
+  <section id="view-office" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v8</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v9</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
   <button class="tab" role="tab" data-view="signal" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Signal</button>
   <button class="tab" role="tab" data-view="history" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Sejarah</button>
   <button class="tab" role="tab" data-view="news" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>Pasaran</button>
+  <button class="tab" role="tab" data-view="office" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>Office</button>
   <button class="tab" role="tab" data-view="info" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>Strategi</button>
 </div></nav>
 
@@ -137,7 +139,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   var POLL_MS = 5000;
 
   var DEMO = {
-    market: {symbol:"XAUUSD", bid:2648.42, ask:2649.22, updated_at:new Date().toISOString()},
+    market: {symbol:"XAUUSD", bid:2648.42, ask:2649.22, regime:"MIXED", regime_detail:{adx_h4:21.4,atr_d1_ratio:0.96}, updated_at:new Date().toISOString()},
     signals: [
       {id:3, created_at:new Date(Date.now()-3*3600e3).toISOString(), status:"TP1", side:"BUY", buy_entry:2639.50, sell_entry:2631.20,
        entry:2639.50, sl:2639.50, tp1:2651.95, tp2:2660.25, risk_pips:83, lots:0.01, risk_usd:41.5, running_pips:89.2, peak_pips:121.0,
@@ -156,7 +158,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     fund: {brief_date:new Date().toISOString().slice(0,10), bias:"BULLISH", confidence:"MEDIUM",
       summary:"Contoh: yield sebenar AS menurun dan dolar lemah, manakala bank pusat terus membeli emas.",
       drivers:[{factor:"Yield sebenar 10 tahun AS",reading:"turun 6bp",effect:"BULLISH"},{factor:"Indeks dolar (DXY)",reading:"-0.4%",effect:"BULLISH"},{factor:"Jangkaan kadar Fed",reading:"tiada perubahan",effect:"NEUTRAL"}]},
-    journal: {week_start:"2026-11-16", stats:{backtest_win_rate:47.5, week:{closed:4, win_rate:50, total_pips:131}},
+    journal: {week_start:"2026-11-16", created_at:new Date(Date.now()-86400e3).toISOString(), stats:{backtest_win_rate:47.5, week:{closed:4, win_rate:50, total_pips:131}},
       summary:"Contoh: 4 trade ditutup minggu ini, 2 menang. Satu kekalahan berlaku semasa tetingkap berita CPI.",
       lessons:["Contoh: trade yang trigger dalam tetingkap berita kalah 1 daripada 1.","Contoh: sampel masih terlalu kecil untuk banding dengan backtest."]}
   };
@@ -358,9 +360,84 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     age.textContent=live?"Live":(secs<3600?Math.round(secs/60)+" min lalu":"tidak dikemas kini");
   }
 
+  // ---- Office: one card per agent, status worked out from what each agent has written today ----
+  function myt(){ var d=new Date(Date.now()+8*3600e3); return {date:d.toISOString().slice(0,10), mins:d.getUTCHours()*60+d.getUTCMinutes(), dow:d.getUTCDay()}; }
+  function hhmm(m){ return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
+  function ago(iso){ if(!iso) return ""; var s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
+    return s<90?"baru sahaja":s<3600?Math.round(s/60)+" min lalu":s<86400?Math.round(s/3600)+" jam lalu":Math.round(s/86400)+" hari lalu"; }
+  var ST={done:["Siap","buy"],live:["Live","buy"],wait:["Menunggu",""],late:["Tiada laporan","sell"],off:["Tiada jadual",""],down:["Tidak aktif","sell"]};
+
+  // Daily agent due at dueMin (MYT) on weekdays; done if its row carries today's MYT date.
+  function dailyStatus(rowDate, dueMin, t){
+    var weekday=t.dow>=1&&t.dow<=5;
+    if(rowDate===t.date) return "done";
+    if(!weekday) return "off";
+    return t.mins<dueMin+20?"wait":"late";
+  }
+
+  function agentCard(name, kind, status, line, meta){
+    var s=ST[status]||[status,""];
+    return '<div class="lv" style="gap:6px"><div class="row"><span><b>'+esc(name)+'</b> <span class="small muted">· '+esc(kind)+'</span></span><span class="chip '+s[1]+'">'+esc(s[0])+'</span></div>'+
+      '<span>'+esc(line)+'</span><small class="muted">'+esc(meta)+'</small></div>';
+  }
+
+  function renderOffice(){
+    var t=myt(), weekday=t.dow>=1&&t.dow<=5;
+    var sig=(data.signals||[])[0], todaySig=sig&&new Date(new Date(sig.created_at).getTime()+8*3600e3).toISOString().slice(0,10)===t.date?sig:null;
+    var m=data.market, n=data.news, f=data.fund, j=data.journal, cards=[];
+
+    // Signal engine heartbeat: the price row is refreshed every few seconds while MT5 runs.
+    var beat=m?(Date.now()-new Date(m.updated_at).getTime())/1000:1e9;
+    cards.push(agentCard("Signal Engine","MT5, kod",beat<120?"live":"down",
+      beat<120?"Harga dan regime dihantar dari MT5":"Tiada data dari MT5. Pastikan MT5 terbuka dan laptop tidak tidur.",
+      "Kemas kini terakhir "+(m?ago(m.updated_at):"tiada")+" · setup London 14:00"));
+
+    var nst=dailyStatus(n&&n.brief_date,8*60+30,t);
+    cards.push(agentCard("Ejen Berita","AI",nst,
+      n&&n.brief_date===t.date?"Risiko "+n.risk_level+" · "+((n.events||[]).filter(function(e){return e.impact==="HIGH";}).map(function(e){return e.title+" "+e.time;}).join(", ")||"tiada berita TINGGI"):"Belum ada laporan hari ini",
+      "Dijadualkan 08:30 hari bekerja"+(n?" · terakhir "+n.brief_date:"")));
+
+    var fst=dailyStatus(f&&f.brief_date,13*60+15,t);
+    cards.push(agentCard("Ejen Fundamental","AI",fst,
+      f&&f.brief_date===t.date?"Bias "+f.bias+" (keyakinan "+f.confidence+")":"Belum ada analisis hari ini",
+      "Dijadualkan 13:15 hari bekerja"+(f?" · terakhir "+f.brief_date:"")));
+
+    var rd=m&&m.regime_detail;
+    cards.push(agentCard("Ejen Regime","kod, backtest",m&&m.regime?"live":"wait",
+      m&&m.regime?"Regime "+(REGIME[m.regime]||m.regime)+(rd?" · ADX H4 "+rd.adx_h4+" · ATR D1 "+rd.atr_d1_ratio+"×":""):"Regime belum dikira",
+      m&&m.regime==="TREND_UP"?"Trend naik: backtest rugi dalam kedua-dua tempoh":"Dikemas kini setiap jam oleh Signal Engine"));
+
+    var c=todaySig&&todaySig.critique, noSetup=todaySig&&(todaySig.status==="NO_TRADE");
+    var dst=c?"done":!weekday?"off":noSetup?"off":t.mins<14*60+45?"wait":todaySig?"late":"wait";
+    cards.push(agentCard("Devil's Advocate","AI",dst,
+      c?"Amaran "+c.caution+" · "+c.summary:noSetup?"Tiada setup hari ini, tiada kritikan":"Belum ada kritikan hari ini",
+      "Dijadualkan 14:25 hari bekerja, selepas setup 14:00"));
+
+    var cl=todaySig&&todaySig.clearance, k=cl&&CLEAR[cl.status];
+    var failed=cl?(cl.checks||[]).filter(function(x){return !x.pass;}).map(function(x){return CHECK_MS[x.name]||x.name;}):[];
+    cards.push(agentCard("Clearance Gate","kod",cl?"done":!weekday?"off":"wait",
+      cl?k[0]+(cl.stage==="PRE_TRIGGER"?" (sebelum trigger)":"")+(failed.length?" · gagal: "+failed.join(", "):" · semua syarat lulus"):"Belum ada keputusan hari ini",
+      "Dikira pada 14:00, 14:25 dan bila signal trigger"));
+
+    var mm=sig&&sig.stats&&sig.stats.mm;
+    cards.push(agentCard("Money Management","kod, backtest",mm?"live":"wait",
+      mm?"Risiko "+Number(mm.risk_pct).toFixed(2)+"% · "+(MM[mm.mode]||mm.mode):"Dikira bila setup keluar",
+      mm?mm.closed+" signal ditutup · tetingkap "+mm.window:"Penapis kurva ekuiti 20 signal"));
+
+    var sat=t.dow===6, jst=j&&new Date(j.created_at||0).getTime()>Date.now()-6*86400e3?"done":(sat&&t.mins>=10*60+30?"late":"wait");
+    cards.push(agentCard("Ejen Jurnal","AI",jst,
+      j?"Minggu "+j.week_start+": "+j.summary:"Belum ada jurnal",
+      "Dijadualkan Sabtu 10:00"));
+
+    var html='<div class="card"><div class="row"><h2>AI Trading Office</h2><span class="small muted">'+esc(t.date)+' · '+hhmm(t.mins)+' MYT</span></div>'+
+      '<p class="small muted" style="margin:0">Ejen AI memberi konteks; keputusan signal dibuat oleh peraturan yang diuji. Anda yang buat keputusan akhir dan masuk trade.</p>'+
+      cards.join("")+'</div>';
+    document.getElementById("view-office").innerHTML=html;
+  }
+
   function render(){
     document.getElementById("demoBanner").hidden=!demo;
-    renderPrice();renderSignal();renderHistory();renderNews();renderInfo();
+    renderPrice();renderSignal();renderHistory();renderNews();renderOffice();renderInfo();
   }
 
   function get(path){
