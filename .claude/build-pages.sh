@@ -34,7 +34,10 @@ cat <<HEAD
 <link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="icon" type="image/svg+xml" href="./icon.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-<style>html,body{margin:0;background:${BG_LIGHT}}@media(prefers-color-scheme:dark){html,body{background:${BG_DARK}}}</style>
+<style>html,body{margin:0;background:${BG_LIGHT}}@media(prefers-color-scheme:dark){html,body{background:${BG_DARK}}}
+/* The installed app draws under the phone's status bar (black-translucent); the Artifact skeleton adds this padding itself, the PWA page must add it here. */
+html{padding-top:env(safe-area-inset-top,0px)}
+[hidden]{display:none!important}</style>
 </head>
 <body>
 <!-- Generated from ${SRC} — edit that file, not this one. -->
