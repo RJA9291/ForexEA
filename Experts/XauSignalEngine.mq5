@@ -18,7 +18,8 @@ input int    InpPriceSeconds    = 5;     // how often the live price is pushed
 
 input group "Position sizing shown in the signal"
 input double InpAccountSize     = 100;   // your real trading account balance (USD)
-input double InpRiskPercent     = 0.5;   // risk per trade (% of account)
+input double InpRiskPercent     = 0.5;   // full risk per trade (% of account)
+input int    InpEquityMAWindow  = 20;    // halve risk while signal equity is below its average over this many closed signals
 
 input group "London breakout rules (same as the backtested EA)"
 input int    InpRangeStartHour  = 3;
@@ -303,6 +304,7 @@ string ReasonsJson()
    r += JStr("Breakout of the 03:00-08:00 server range at London open (08:00 server = 14:00 MYT)") + ",";
    r += JStr(RegimeReason()) + ",";
    r += JStr(StringFormat("Risk %.0f pip, BE at %.1fR, target %.1fR", risk / PipSize(), InpBreakevenR, InpTPR)) + ",";
+   r += JStr(MoneyReason()) + ",";
    r += JStr("Backtest closes open trades at 21:00 server (03:00 MYT)");
    if(newsRisk == "HIGH")
       r += "," + JStr("News risk HIGH today: major release can whipsaw the breakout (news filter not yet backtested - see Berita tab)");
@@ -322,7 +324,8 @@ string StatsJson()
    return "{\"source\":\"backtest 2024-2026\",\"trades\":543,\"win_rate\":47.5,"
           "\"by_year\":[{\"year\":2024,\"win_rate\":48.2,\"pf\":1.12},"
           "{\"year\":2025,\"win_rate\":44.8,\"pf\":1.15},{\"year\":2026,\"win_rate\":49.7,\"pf\":1.46}],"
-          "\"max_drawdown_pct\":23.7,\"regime\":" + RegimeStatsJson() + "}";
+          "\"max_drawdown_pct\":23.7,\"regime\":" + RegimeStatsJson() +
+          StringFormat(",\"mm\":{\"risk_pct\":%.2f,\"mode\":%s,\"closed\":%d,\"window\":%d}", mmRiskPct, JStr(mmMode), mmClosed, InpEquityMAWindow) + "}";
   }
 
 // London breakout per regime, backtest 2024-01-02 to 2026-11-20 (docs/backtests.md).
@@ -352,6 +355,82 @@ string RegimeReason()
    return "Regime unknown (not enough data)";
   }
 
+//+------------------------------------------------------------------+
+//| Money management: equity-curve filter. Replays every closed      |
+//| signal as an R-multiple on a virtual account; while that equity  |
+//| is below its N-signal average, suggested risk is halved. In the  |
+//| 2024-2026 replay (tester/mm_simulate.py) this beat fixed 1% on   |
+//| both return (+80.6% vs +74.5%) and drawdown (15.3% vs 22.9%).    |
+//| Risk is never raised after losses (no martingale).               |
+//+------------------------------------------------------------------+
+double mmRiskPct = 0;
+string mmMode = "WARMUP";
+int    mmClosed = 0;
+
+double JsonNumberAt(const string s, const int pos)
+  {
+   int end = pos;
+   while(end < StringLen(s))
+     {
+      ushort ch = StringGetCharacter(s, end);
+      if(ch == ',' || ch == '}' || ch == ']') break;
+      end++;
+     }
+   return StringToDouble(StringSubstr(s, pos, end - pos));
+  }
+
+void UpdateMoneyManagement()
+  {
+   mmRiskPct = InpRiskPercent;
+   mmMode = "WARMUP";
+   mmClosed = 0;
+   string resp;
+   if(Rest("GET", "/rest/v1/signals?select=result_pips,risk_pips&status=like.CLOSED*&result_pips=not.is.null&order=created_at.asc",
+           "", "", resp) != 200)
+      return;
+   double eqHist[];
+   double eq = 1.0, pct = InpRiskPercent;
+   int pos = StringFind(resp, "\"result_pips\":");
+   while(pos >= 0)
+     {
+      double res = JsonNumberAt(resp, pos + 14);
+      int rp = StringFind(resp, "\"risk_pips\":", pos);
+      int next = StringFind(resp, "\"result_pips\":", pos + 14);
+      if(rp < 0 || (next >= 0 && rp > next)) { pos = next; continue; }
+      double rk = JsonNumberAt(resp, rp + 12);
+      if(rk > 0)
+        {
+         int n = ArraySize(eqHist);
+         pct = InpRiskPercent;
+         if(n >= InpEquityMAWindow)
+           {
+            double sum = 0;
+            for(int i = n - InpEquityMAWindow; i < n; i++) sum += eqHist[i];
+            if(eq < sum / InpEquityMAWindow) pct = InpRiskPercent / 2.0;
+           }
+         eq *= 1.0 + pct / 100.0 * (res / rk);
+         ArrayResize(eqHist, n + 1);
+         eqHist[n] = eq;
+        }
+      pos = next;
+     }
+   mmClosed = ArraySize(eqHist);
+   if(mmClosed < InpEquityMAWindow) return;
+   double sum = 0;
+   for(int i = mmClosed - InpEquityMAWindow; i < mmClosed; i++) sum += eqHist[i];
+   bool below = eq < sum / InpEquityMAWindow;
+   mmRiskPct = below ? InpRiskPercent / 2.0 : InpRiskPercent;
+   mmMode = below ? "REDUCED" : "FULL";
+  }
+
+string MoneyReason()
+  {
+   if(mmMode == "WARMUP")
+      return StringFormat("Money management: risk %.2f%% (full size until %d signals have closed; %d so far)", mmRiskPct, InpEquityMAWindow, mmClosed);
+   return StringFormat("Money management: risk %.2f%% - signal equity is %s its %d-signal average%s", mmRiskPct,
+                       mmMode == "REDUCED" ? "below" : "above", InpEquityMAWindow, mmMode == "REDUCED" ? ", so size is halved" : "");
+  }
+
 double SuggestedLots(double &riskUsd)
   {
    double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
@@ -360,7 +439,8 @@ double SuggestedLots(double &riskUsd)
    double step      = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
    if(tickValue <= 0 || tickSize <= 0 || step <= 0 || risk <= 0) { riskUsd = 0; return 0; }
    double lossPerLot = risk / tickSize * tickValue;
-   double lots = MathFloor(InpAccountSize * InpRiskPercent / 100.0 / lossPerLot / step) * step;
+   double pct = mmRiskPct > 0 ? mmRiskPct : InpRiskPercent;
+   double lots = MathFloor(InpAccountSize * pct / 100.0 / lossPerLot / step) * step;
    lots = MathMax(lots, minLot);   // shown with its real dollar risk so the user can judge
    riskUsd = lots * lossPerLot;
    return NormalizeDouble(lots, 2);
@@ -490,6 +570,7 @@ void CreateSetup()
    FetchNewsRisk();
    FetchFundamental();
    UpdateRegime();
+   UpdateMoneyManagement();
    double mid = (rangeHi + rangeLo) / 2.0;
    double pct = (rangeHi - rangeLo) / mid * 100.0;
    double pip = PipSize();

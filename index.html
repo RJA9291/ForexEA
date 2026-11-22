@@ -119,7 +119,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-history" class="view" hidden></section>
   <section id="view-news" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v7</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v8</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
@@ -142,7 +142,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       {id:3, created_at:new Date(Date.now()-3*3600e3).toISOString(), status:"TP1", side:"BUY", buy_entry:2639.50, sell_entry:2631.20,
        entry:2639.50, sl:2639.50, tp1:2651.95, tp2:2660.25, risk_pips:83, lots:0.01, risk_usd:41.5, running_pips:89.2, peak_pips:121.0,
        reasons:["Julat Asia 2631.70-2639.00 (0.28%) dalam had","Breakout julat 03:00-08:00 server semasa London dibuka","Risiko 83 pip, BE pada 1.5R, sasaran 2.5R"],
-       regime:"MIXED", stats:{trades:543,win_rate:47.5,max_drawdown_pct:23.7,regime:{name:"MIXED",trades:178,win_rate:50.6,pf:1.26,pf_2024_25:1.07,pf_2026:1.47,verdict:"PROFITABLE_BOTH"},by_year:[{year:2024,win_rate:48.2,pf:1.12},{year:2025,win_rate:44.8,pf:1.15},{year:2026,win_rate:49.7,pf:1.46}]},
+       regime:"MIXED", stats:{trades:543,win_rate:47.5,max_drawdown_pct:23.7,mm:{risk_pct:0.5,mode:"FULL",closed:34,window:20},regime:{name:"MIXED",trades:178,win_rate:50.6,pf:1.26,pf_2024_25:1.07,pf_2026:1.47,verdict:"PROFITABLE_BOTH"},by_year:[{year:2024,win_rate:48.2,pf:1.12},{year:2025,win_rate:44.8,pf:1.15},{year:2026,win_rate:49.7,pf:1.46}]},
        news_risk:"MEDIUM",
        clearance:{status:"CAUTION",stage:"AT_TRIGGER",checks:[{id:1,name:"Regime",pass:true,detail:"Regime MIXED"},{id:2,name:"News",pass:true,detail:"Tiada berita TINGGI sekarang"},{id:3,name:"Fundamental",pass:true,detail:"Bias BULLISH (MEDIUM)"},{id:4,name:"Devil's Advocate",pass:false,detail:"Caution HIGH (contoh)"}]},
        critique:{caution:"MEDIUM",summary:"Contoh: breakout berlaku sejurus sebelum data PMI, dan harga dah dekat paras rintangan minggu lalu.",against_buy:["Contoh: harga dekat high mingguan 2662, ruang ke TP terhad.","Contoh: RSI H1 dah overbought."],against_sell:["Contoh: trend H4 masih naik."]}},
@@ -189,6 +189,12 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       '<div class="stats"><div class="stat"><span class="label">Semua</span><b class="num">'+esc(st.win_rate)+'%</b><small class="muted">menang</small></div>'+years+'</div>'+
       regimeStats(st.regime)+
       '<p class="small muted" style="margin:0">Drawdown maksimum '+esc(st.max_drawdown_pct)+'% pada risiko 1%. Kebanyakan untung datang dari 2026; 2024 dan 2025 lebih nipis.</p></div>';
+  }
+
+  var MM={FULL:"saiz penuh, ekuiti signal di atas purata",REDUCED:"saiz separuh, ekuiti signal di bawah purata",WARMUP:"saiz penuh, data belum cukup"};
+  function mmLine(m){
+    if(!m) return "";
+    return '<small class="'+(m.mode==="REDUCED"?"neg":"muted")+'">Risiko '+esc(Number(m.risk_pct).toFixed(2))+'%: '+esc(MM[m.mode]||m.mode)+(m.mode==="WARMUP"?" ("+esc(m.closed)+"/"+esc(m.window)+")":"")+'</small>';
   }
 
   var CLEAR={CLEARED:["CLEARED","buy","Semua syarat lulus."],CAUTION:["CAUTION","warn","Satu syarat gagal. Semak sebelum masuk."],NOT_CLEARED:["NOT CLEARED","sell","Tidak lulus clearance. Sejarah menunjukkan lebih baik tidak masuk."]};
@@ -269,7 +275,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       html+='<div class="levels">'+lv("Entry", s.entry, {wide:true})+
         lv(beSet?"Stop loss (BE)":"Stop loss", s.sl)+lv("TP1 · BE", s.tp1, {hit:beSet||s.status==="CLOSED_TP"})+
         lv("TP akhir · 2.5R", s.tp2, {hit:s.status==="CLOSED_TP"})+
-        '<div class="lv"><span class="label">Saiz</span><b class="num">'+f2(s.lots)+' lot</b><small>rugi jika SL: $'+f2(s.risk_usd)+'</small></div></div>';
+        '<div class="lv"><span class="label">Saiz</span><b class="num">'+f2(s.lots)+' lot</b><small>rugi jika SL: $'+f2(s.risk_usd)+'</small>'+mmLine(s.stats&&s.stats.mm)+'</div></div>';
     }
     if(s.escape&&s.escape.advice) html+='<div class="escape"><b>Amaran escape.</b> '+esc(s.escape.advice)+'</div>';
     if(s.escape&&s.escape.note) html+='<p class="small muted" style="margin:0">'+esc(s.escape.note)+'</p>';

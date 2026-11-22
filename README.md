@@ -8,6 +8,7 @@ Expert Advisor (EA) forex untuk MetaTrader 5 (MQL5), fokus XAUUSD.
 - `docs/strategy.md` — penerangan strategi, risiko dan cara pasang
 - `docs/scalper.md` — strategi scalping, peraturan escape dan money management
 - `docs/backtests.md` — keputusan backtest
+- `docs/money-management.md` — perbandingan kaedah saiz lot dan kaedah yang dipilih
 - `tester/` — konfigurasi Strategy Tester
 
 ## Nota
