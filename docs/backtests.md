@@ -127,14 +127,14 @@ Sama seperti asas (2024-01-02 → 2026-11-20, $10,000, risiko 1%, kill switch di
 |---|---|---|---|---|
 | Tanpa escape | SL / TP 2.5R / BE 1.5R / tutup 21:00 | $16,856.98 | **+$6,856.98** | 23.7% |
 | A. Breakout gagal | Keluar bila M15 tutup semula dalam julat Asia | $9,969.60 | **−$30.40** | 11.5% |
-| B. Time stop | Keluar jika < 0.5R selepas 3 jam | — | **Tidak siap** | — |
+| B. Time stop | Keluar jika < 0.5R selepas 3 jam | $10,636.50 | **+$636.50** | 28.3% |
 | C. Stop-and-reverse | A, kemudian buka arah bertentangan sekali | $1,028.13 | **−$8,971.87** | 89.7% |
 
 - **A** tercetus pada 484 daripada 543 trade: hampir setiap breakout emas kembali ke julat seketika sebelum bergerak. Keluar awal memotong trade yang akhirnya menang (win rate jatuh ke ~10%).
 - **C** menggandakan kerugian: arah terbalik juga kembali melawan.
-- **B** tergantung pada data 2024-06-11 selama 2 jam; ujian C seterusnya hanya bermula 4 jam selepas dilancarkan. Corak ini menunjukkan komputer tidur pada waktu malam, bukan ralat peraturan. Perlu diuji semula.
+- **B** (diuji semula 2026-11-22 dengan komputer berjaga) tercetus pada 404 trade. PF 0.92 (2024), 1.20 (2025), 0.98 (2026): breakout emas sering mengambil masa lebih 3 jam untuk bergerak, jadi time stop memotong pemenang lewat. Drawdown juga lebih teruk (28.3%).
 
 ### Kesimpulan
-- Jangan guna escape A atau C. Peraturan asal (biarkan SL/TP/BE bekerja) jauh lebih baik.
+- Jangan guna escape A, B atau C. Peraturan asal (biarkan SL/TP/BE bekerja) jauh lebih baik.
 - Amaran "breakout gagal" telah dibuang dari Signal Engine dan app kerana mengikutnya merugikan.
 - Tiada syarat 5 ("kualiti breakout") untuk Clearance Gate: tiada peraturan escape yang lulus ujian.
