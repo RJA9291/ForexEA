@@ -16,6 +16,13 @@
 //| S/R bounce (M15): previous-day high/low and $50 round numbers;   |
 //| a rejection candle that touches a level and closes back on the  |
 //| near side -> trade away from the level.                          |
+//| Tokmat Shadow Entry (user's course notes, 2026-11-23): SnR zones |
+//| are the shadows (wicks) of D1/H4 swing candles. When price       |
+//| reaches a support zone, drop to M5: price must break two         |
+//| resistances (close above the two latest M5 swing highs), then    |
+//| buy on the pullback to the broken level. Mirror for sell. SL     |
+//| beyond the lowest point since the zone touch, 20-80 pips (notes: |
+//| SL 30-50 pips, RR 1:2-1:3). No martingale, no full margin.       |
 //+------------------------------------------------------------------+
 #property copyright "RJA9291"
 #property link      "https://github.com/RJA9291/ForexEA"
@@ -29,7 +36,8 @@ enum LabStrategy
   {
    LAB_BBMA_REENTRY = 1,   // BBMA Reentry (H1, with trend)
    LAB_BBMA_EXTREME = 2,   // BBMA Extreme (H1, counter-trend)
-   LAB_SR_BOUNCE    = 3    // Support/Resistance bounce (M15)
+   LAB_SR_BOUNCE    = 3,   // Support/Resistance bounce (M15)
+   LAB_TOKMAT       = 4    // Tokmat Shadow Entry (D1/H4 shadow zones, M5 break-2 + pullback)
   };
 
 input LabStrategy InpStrategy   = LAB_BBMA_REENTRY;
@@ -44,6 +52,9 @@ input int    InpStartHour       = 8;     // server time; no new entries outside 
 input int    InpEndHour         = 21;
 input int    InpMaxSpreadPoints = 150;
 input double InpSRTouchATR      = 0.15;  // how close a candle must come to a level (H1 ATR)
+input double InpTkMinSLPips     = 20;    // Tokmat: SL distance floor (1 pip = 0.10)
+input double InpTkMaxSLPips     = 80;    // Tokmat: skip the setup if the SL would be wider
+input int    InpTkTouchHours    = 12;    // Tokmat: how long a zone touch stays valid
 input ulong  InpMagic           = 920300;
 
 CTrade     trade;
@@ -54,11 +65,16 @@ string   tallyNames[];
 int      tallyCounts[];
 
 //+------------------------------------------------------------------+
-ENUM_TIMEFRAMES SignalTF() { return InpStrategy == LAB_SR_BOUNCE ? PERIOD_M15 : PERIOD_H1; }
+ENUM_TIMEFRAMES SignalTF()
+  {
+   if(InpStrategy == LAB_TOKMAT) return PERIOD_M5;
+   return InpStrategy == LAB_SR_BOUNCE ? PERIOD_M15 : PERIOD_H1;
+  }
 string StrategyName()
   {
    if(InpStrategy == LAB_BBMA_REENTRY) return "BBMA_REENTRY";
    if(InpStrategy == LAB_BBMA_EXTREME) return "BBMA_EXTREME";
+   if(InpStrategy == LAB_TOKMAT) return "TOKMAT_SHADOW";
    return "SR_BOUNCE";
   }
 
@@ -142,15 +158,17 @@ double LotsForRisk(const double riskDistance)
   }
 
 // Market entry with the SL placed beyond `structure`; R is the entry-to-SL distance.
-void Enter(const int dir, const double structure, const string setup)
+// minRisk/maxRisk override the ATR-based bounds when positive (price units).
+void Enter(const int dir, const double structure, const string setup, const double minRisk = 0, const double maxRisk = 0)
   {
    double atr = Buf(hAtrH1, 0, 1);
    if(atr == EMPTY_VALUE || atr <= 0) return;
+   double lo = minRisk > 0 ? minRisk : InpMinSLATR * atr, hi = maxRisk > 0 ? maxRisk : InpMaxSLATR * atr;
    double entry = dir > 0 ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double sl = structure - dir * InpSLBufferATR * atr;
+   double sl = structure - dir * InpSLBufferATR * atr * (minRisk > 0 ? 0.25 : 1.0);
    double risk = (entry - sl) * dir;
-   if(risk < InpMinSLATR * atr) { risk = InpMinSLATR * atr; sl = entry - dir * risk; }
-   if(risk > InpMaxSLATR * atr) { Tally(setup + ": SL too wide"); return; }
+   if(risk < lo) { risk = lo; sl = entry - dir * risk; }
+   if(risk > hi) { Tally(setup + ": SL too wide"); return; }
    double lots = LotsForRisk(risk);
    if(lots <= 0) { Tally(setup + ": lot below minimum"); return; }
    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
@@ -230,6 +248,113 @@ void SrBounce()
   }
 
 //+------------------------------------------------------------------+
+//| Tokmat Shadow Entry                                              |
+//+------------------------------------------------------------------+
+// Per direction (0 = buy, 1 = sell): 0 idle, 1 zone touched, 2 two structure levels broken.
+int      tkState[2] = {0, 0};
+double   tkZoneLo[2], tkZoneHi[2], tkExtreme[2], tkBreak[2];
+datetime tkSince[2];
+
+bool IsFractalHigh(const ENUM_TIMEFRAMES tf, const int i, const int s)
+  {
+   double h = iHigh(_Symbol, tf, i);
+   for(int k = 1; k <= s; k++) if(h <= iHigh(_Symbol, tf, i - k) || h < iHigh(_Symbol, tf, i + k)) return false;
+   return true;
+  }
+bool IsFractalLow(const ENUM_TIMEFRAMES tf, const int i, const int s)
+  {
+   double l = iLow(_Symbol, tf, i);
+   for(int k = 1; k <= s; k++) if(l >= iLow(_Symbol, tf, i - k) || l > iLow(_Symbol, tf, i + k)) return false;
+   return true;
+  }
+
+// Shadow zone of a D1/H4 swing candle that the last closed M5 bar is touching.
+// Buy: swing low, zone = lower wick [low, body low]. Sell: swing high, zone = upper wick [body high, high].
+bool TouchedShadowZone(const int dir, double &zlo, double &zhi)
+  {
+   double l1 = iLow(_Symbol, PERIOD_M5, 1), h1 = iHigh(_Symbol, PERIOD_M5, 1), c1 = iClose(_Symbol, PERIOD_M5, 1);
+   ENUM_TIMEFRAMES tfs[2] = {PERIOD_D1, PERIOD_H4};
+   int depth[2] = {60, 120};
+   for(int t = 0; t < 2; t++)
+      for(int i = 3; i < depth[t]; i++)
+        {
+         double o = iOpen(_Symbol, tfs[t], i), c = iClose(_Symbol, tfs[t], i);
+         if(dir > 0 && IsFractalLow(tfs[t], i, 2))
+           {
+            zlo = iLow(_Symbol, tfs[t], i); zhi = MathMax(MathMin(o, c), zlo + 0.5);
+            if(l1 <= zhi && c1 >= zlo) return true;
+           }
+         if(dir < 0 && IsFractalHigh(tfs[t], i, 2))
+           {
+            zhi = iHigh(_Symbol, tfs[t], i); zlo = MathMin(MathMax(o, c), zhi - 0.5);
+            if(h1 >= zlo && c1 <= zhi) return true;
+           }
+        }
+   return false;
+  }
+
+// The two most recent M5 swing highs (dir>0) or lows (dir<0) formed since `since`; returns the outer one.
+bool TwoStructureLevels(const int dir, const datetime since, double &level)
+  {
+   int found = 0;
+   level = 0;
+   for(int i = 3; i < 150; i++)
+     {
+      if(iTime(_Symbol, PERIOD_M5, i) < since) break;
+      bool sw = dir > 0 ? IsFractalHigh(PERIOD_M5, i, 2) : IsFractalLow(PERIOD_M5, i, 2);
+      if(!sw) continue;
+      double v = dir > 0 ? iHigh(_Symbol, PERIOD_M5, i) : iLow(_Symbol, PERIOD_M5, i);
+      level = found == 0 ? v : (dir > 0 ? MathMax(level, v) : MathMin(level, v));
+      if(++found == 2) return true;
+     }
+   return false;
+  }
+
+void TokmatStep(const bool mayEnter)
+  {
+   double pip = SymbolInfoDouble(_Symbol, SYMBOL_POINT) * 10;
+   double o1 = iOpen(_Symbol, PERIOD_M5, 1), h1 = iHigh(_Symbol, PERIOD_M5, 1), l1 = iLow(_Symbol, PERIOD_M5, 1), c1 = iClose(_Symbol, PERIOD_M5, 1);
+   datetime t1 = iTime(_Symbol, PERIOD_M5, 1);
+   for(int k = 0; k < 2; k++)
+     {
+      int dir = k == 0 ? 1 : -1;
+      if(tkState[k] > 0 && t1 - tkSince[k] > InpTkTouchHours * 3600) tkState[k] = 0;   // stale
+
+      if(tkState[k] == 0)
+        {
+         double zlo, zhi;
+         if(TouchedShadowZone(dir, zlo, zhi))
+           { tkState[k] = 1; tkZoneLo[k] = zlo; tkZoneHi[k] = zhi; tkSince[k] = t1; tkExtreme[k] = dir > 0 ? l1 : h1; }
+         continue;
+        }
+      tkExtreme[k] = dir > 0 ? MathMin(tkExtreme[k], l1) : MathMax(tkExtreme[k], h1);
+      // A body close through the far side of the zone breaks it.
+      if((dir > 0 && c1 < tkZoneLo[k] - 2 * pip) || (dir < 0 && c1 > tkZoneHi[k] + 2 * pip)) { tkState[k] = 0; continue; }
+
+      if(tkState[k] == 1)
+        {
+         double lvl;
+         // Swing levels counted from one hour before the touch, so the structure leading into the zone counts.
+         if(TwoStructureLevels(dir, tkSince[k] - 3600, lvl) && (c1 - lvl) * dir > 0)
+           { tkState[k] = 2; tkBreak[k] = lvl; Tally("Tokmat: broke 2 levels"); }
+         continue;
+        }
+
+      // State 2: pullback to the broken level that holds -> entry.
+      bool touched = dir > 0 ? l1 <= tkBreak[k] + 3 * pip : h1 >= tkBreak[k] - 3 * pip;
+      bool holds = dir > 0 ? (c1 > tkBreak[k] && c1 > o1) : (c1 < tkBreak[k] && c1 < o1);
+      if(touched && holds)
+        {
+         if(mayEnter) Enter(dir, tkExtreme[k], "Tokmat shadow", InpTkMinSLPips * pip, InpTkMaxSLPips * pip);
+         else Tally("Tokmat: setup outside session/limits");
+         tkState[k] = 0;
+        }
+      else if((dir > 0 && c1 < tkExtreme[k]) || (dir < 0 && c1 > tkExtreme[k]))
+         tkState[k] = 0;
+     }
+  }
+
+//+------------------------------------------------------------------+
 void ManageBreakeven()
   {
    if(InpBreakevenR <= 0) return;
@@ -258,9 +383,10 @@ void OnTick()
 
    MqlDateTime dt;
    TimeToStruct(TimeCurrent(), dt);
-   if(dt.hour < InpStartHour || dt.hour >= InpEndHour) return;
-   if(HasPosition() || TradesToday() >= InpMaxTradesPerDay) return;
-   if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) > InpMaxSpreadPoints) return;
+   bool mayEnter = dt.hour >= InpStartHour && dt.hour < InpEndHour && !HasPosition() &&
+                   TradesToday() < InpMaxTradesPerDay && SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= InpMaxSpreadPoints;
+   if(InpStrategy == LAB_TOKMAT) { TokmatStep(mayEnter); return; }   // zone/structure tracking runs on every bar
+   if(!mayEnter) return;
 
    if(InpStrategy == LAB_BBMA_REENTRY) BbmaReentry();
    else if(InpStrategy == LAB_BBMA_EXTREME) BbmaExtreme();

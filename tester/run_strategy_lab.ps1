@@ -12,18 +12,19 @@ if (Get-Process terminal64 -ErrorAction SilentlyContinue) { throw "Close MetaTra
 # The tester reuses inputs from the previous run for anything not listed, so all inputs are explicit.
 function Inputs([int]$strategy) {
     @(
-        "InpStrategy=$strategy||1||1||3||N", "InpRiskPercent=1.0||1.0||0.1||5||N", "InpTPR=2.0||1||0.5||5||N",
+        "InpStrategy=$strategy||1||1||4||N",
+        "InpTkMinSLPips=20||10||5||50||N", "InpTkMaxSLPips=80||40||10||150||N", "InpTkTouchHours=12||4||2||24||N", "InpRiskPercent=1.0||1.0||0.1||5||N", "InpTPR=2.0||1||0.5||5||N",
         "InpBreakevenR=1.0||0||0.5||3||N", "InpSLBufferATR=0.2||0||0.1||1||N", "InpMinSLATR=0.3||0.1||0.1||1||N",
         "InpMaxSLATR=2.0||1||0.5||5||N", "InpMaxTradesPerDay=2||1||1||10||N", "InpStartHour=8||0||1||23||N",
         "InpEndHour=21||0||1||23||N", "InpMaxSpreadPoints=150||50||10||300||N", "InpSRTouchATR=0.15||0.05||0.05||1||N"
     )
 }
-$variants = [ordered]@{ "lab_bbma_reentry" = 1; "lab_bbma_extreme" = 2; "lab_sr_bounce" = 3 }
+$variants = [ordered]@{ "lab_bbma_reentry" = 1; "lab_bbma_extreme" = 2; "lab_sr_bounce" = 3; "lab_tokmat" = 4 }
 
 foreach ($name in $variants.Keys) {
     if ($Only.Count -gt 0 -and $Only -notcontains $name) { continue }
     $ini = Join-Path $outDir "$name.ini"
-    (@("[Tester]", "Expert=XauStrategyLab.ex5", "Symbol=XAUUSD", "Period=M15", "Model=0", "Optimization=0",
+    (@("[Tester]", "Expert=XauStrategyLab.ex5", "Symbol=XAUUSD", "Period=M5", "Model=0", "Optimization=0",
        "FromDate=2024.01.02", "ToDate=2026.11.20", "ForwardMode=0", "Deposit=10000", "Currency=USD", "Leverage=100",
        "ExecutionMode=0", "ShutdownTerminal=1", "", "[TesterInputs]") + (Inputs $variants[$name])) | Set-Content $ini -Encoding ascii
 
