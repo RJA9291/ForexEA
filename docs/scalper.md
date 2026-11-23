@@ -38,3 +38,13 @@ Dengan akaun $100 dan had 10%, hanya setup dengan SL minimum (20 pip) yang lepas
 
 - Backtest real ticks 3 bulan: `tester/scalper_3m_100.ini`, `tester/scalper_3m_10k.ini` (MT5 mesti ditutup dulu).
 - Demo live: lekat EA pada chart XAUUSD (sebarang timeframe), hidupkan Algo Trading.
+
+## Forward test demo (bermula 2026-11-23)
+
+- Akaun demo InstaForex baharu, baki $10,000, hedging. Nombor akaun tidak disimpan di sini.
+- XauScalper dilekat pada XAUUSD M5 melalui profil carta MT5 (`chart06.chr`), magic 920101. Signal Engine kekal pada XAUUSD M15.
+- Input: risiko 1%, maks 6 trade sehari, had rugi harian 3%, berhenti selepas 3 kalah berturut-turut, kill switch 20%,
+  `InpUseADX=false`, `InpRequireStrongHA=false`, SL maks 60 pip, sesi 09:00–21:00 waktu server.
+- Jangkaan: backtest rugi pada spread $0.80 (lihat `tester/spread_sensitivity.py`). Tujuan demo ialah membandingkan
+  keputusan pasaran sebenar dengan backtest, bukan membuktikan untung.
+- Selepas tukar akaun, MT5 mematikan Algo Trading; butang mesti dihidupkan semula secara manual.
