@@ -195,3 +195,19 @@ Syarat lulus: PF > 1 dalam 2024–25 **dan** 2026, dengan ≥ 30 trade pada 2026
 - Tiada variasi yang lulus. PF bawah 1 dalam setiap tahun bagi setiap variasi.
 - Varian M1 (sampel terbesar, 232 trade pada 2026) paling jelas: PF 0.64–0.71 sepanjang tiga tahun.
 - Regime HIGH_VOL kadang-kadang positif dalam 2024–25 tetapi hampir tiada trade pada 2026; tidak boleh disahkan.
+
+## 2026-11-24 — Berapa banyak kerugian scalping datang dari spread?
+
+Trade sedia ada dikira semula seolah-olah spread lebih rendah (`tester/spread_sensitivity.py`): setiap trade
+menjimatkan (0.80 − spread) dalam harga. Slippage dan komisen akaun raw tidak dikira.
+
+| Strategi (log) | SL median | PF @ $0.80 (InstaForex) | @ $0.40 | @ $0.20 | @ $0.10 |
+|---|---|---|---|---|---|
+| Scalper v1, M5 (357 trade, 1 tahun) | 50 pip | 0.65 | 0.77 | 0.85 | 0.89 |
+| Tokmat M1, SL 30–50 (1,096 trade) | 30 pip | 0.66 | 0.84 | 0.95 | 1.01 |
+| Tokmat M5 asal (573 trade) | 55 pip | 0.63 | 0.75 | 0.81 | 0.85 |
+
+### Kesimpulan
+- Spread InstaForex menyumbang sebahagian besar kerugian scalping: SL kecil (30–50 pip) membayar 16–27% daripada SL sebagai spread.
+- Tetapi spread rendah sahaja **tidak cukup**: walaupun pada $0.10, PF hanya 0.85–1.01 (hampir pulang modal, sebelum komisen).
+- Untuk scalping M5 yang menguntungkan, perlu kedua-duanya: broker kos rendah **dan** strategi yang ada edge.
