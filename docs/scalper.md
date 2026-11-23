@@ -44,7 +44,8 @@ Dengan akaun $100 dan had 10%, hanya setup dengan SL minimum (20 pip) yang lepas
 - Akaun demo InstaForex baharu, baki $10,000, hedging. Nombor akaun tidak disimpan di sini.
 - XauScalper dilekat pada XAUUSD M5 melalui profil carta MT5 (`chart06.chr`), magic 920101. Signal Engine kekal pada XAUUSD M15.
 - Input: risiko 1%, maks 6 trade sehari, had rugi harian 3%, berhenti selepas 3 kalah berturut-turut, kill switch 20%,
-  `InpUseADX=false`, `InpRequireStrongHA=false`, SL maks 60 pip, sesi 09:00–21:00 waktu server.
+  `InpUseADX=false`, `InpRequireStrongHA=false`, SL maks 60 pip, sesi 24 jam (`InpStartHour=0`, `InpEndHour=24`,
+  diubah 2026-11-23 atas permintaan; penapis spread masih menyekat waktu rollover yang spreadnya melebar).
 - Jangkaan: backtest rugi pada spread $0.80 (lihat `tester/spread_sensitivity.py`). Tujuan demo ialah membandingkan
   keputusan pasaran sebenar dengan backtest, bukan membuktikan untung.
 - Selepas tukar akaun, MT5 mematikan Algo Trading; butang mesti dihidupkan semula secara manual.
