@@ -67,3 +67,10 @@ Dengan akaun $100 dan had 10%, hanya setup dengan SL minimum (20 pip) yang lepas
 - Money management London, jurnal mingguan dan Devil's Advocate kini membaca `strategy = LONDON_BREAKOUT` sahaja,
   supaya trade scalper tidak mengubah statistik signal London.
 - Strategy Tester tidak terjejas: clearance dan penghantaran dimatikan semasa backtest.
+
+### Paparan setup (Indicators/XauSetupView.mq5, ditambah 2026-11-24)
+
+- Indikator pada carta XAUUSD M5 (`chart06.chr`): EMA20 M5 (ungu), EMA50/EMA200 M15 (oren/biru), candle Heikin Ashi,
+  dan anak panah pada setiap candle tertutup di mana syarat entry scalper lengkap (bias, pullback, HA flip, had SL,
+  spread dianggap $0.80, penapis ATR). Anak panah tidak mengambil kira posisi terbuka, had harian atau clearance.
+- Dengan `InpShowHA=true` candle biasa disembunyikan; warna asal dipulihkan bila indikator dibuang.
