@@ -33,7 +33,7 @@ foreach ($name in $variants.Keys) {
     $log = Get-ChildItem $agentLogs | Sort-Object LastWriteTime | Select-Object -Last 1
     $text = Get-Content $log.FullName -Encoding Unicode
     $start = ($text | Select-String "XauStrategyLab spec" | Select-Object -Last 1).LineNumber
-    if (-not $start) { "===== $name: no run found in agent log"; continue }
+    if (-not $start) { "===== ${name}: no run found in agent log"; continue }
     $run = $text[($start - 1)..($text.Count - 1)]
     $run | Set-Content (Join-Path $outDir "$name.log") -Encoding utf8
     "===== $name"
