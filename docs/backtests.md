@@ -138,3 +138,22 @@ Sama seperti asas (2024-01-02 → 2026-11-20, $10,000, risiko 1%, kill switch di
 - Jangan guna escape A, B atau C. Peraturan asal (biarkan SL/TP/BE bekerja) jauh lebih baik.
 - Amaran "breakout gagal" telah dibuang dari Signal Engine dan app kerana mengikutnya merugikan.
 - Tiada syarat 5 ("kualiti breakout") untuk Clearance Gate: tiada peraturan escape yang lulus ujian.
+
+## 2026-11-23 — Strategy Lab: BBMA dan Support/Resistance
+
+EA: `Experts/XauStrategyLab.mq5` (statistik dari `Include/XauStats.mqh`), runner `tester/run_strategy_lab.ps1`.
+Peraturan sama untuk semua: risiko 1%, TP 2R, BE pada 1R, maks 2 trade sehari, 08:00–21:00 server, $10,000, 2024-01-02 → 2026-11-20.
+BBMA guna peraturan komuniti (BB 20/2, LWMA 5/10 high/low, EMA50, H1) — tiada spesifikasi rasmi bertulis.
+
+| Strategi | Trade | 2024 PF | 2025 PF | 2026 PF | Untung | Max DD |
+|---|---|---|---|---|---|---|
+| BBMA Reentry (H1, ikut trend) | 317 | 0.56 | 0.96 | 1.14 | **−$2,910** | 37.7% |
+| BBMA Extreme (H1, lawan trend) | 191 | 0.54 | 0.81 | 3.39 (15 trade) | **−$2,099** | 28.1% |
+| S/R bounce (M15, PDH/PDL + $50) | 551 | 0.62 | 0.55 | 0.91 | **−$6,909** | 70.0% |
+
+- Tiada regime yang untung secara konsisten dalam kedua-dua tempoh dengan sampel yang munasabah (BBMA Extreme HIGH_VOL: 14 trade, semuanya 2024–25).
+- Bilangan trade 2026 kecil kerana ekuiti dah jatuh: dengan kontrak 500 auns InstaForex, risiko 1% bawah lot minimum 0.01 ("lot below minimum": Reentry 233, Extreme 128, S/R 1,072). Jadi PF 2026 tidak boleh dipercayai; 2024–2025 sudah cukup jelas negatif.
+
+### Kesimpulan
+- Ketiga-tiga strategi **tidak lulus** dan tidak dimasukkan ke dalam signal.
+- London Breakout kekal satu-satunya strategi yang lulus.
