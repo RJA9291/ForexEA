@@ -157,3 +157,24 @@ BBMA guna peraturan komuniti (BB 20/2, LWMA 5/10 high/low, EMA50, H1) — tiada 
 ### Kesimpulan
 - Ketiga-tiga strategi **tidak lulus** dan tidak dimasukkan ke dalam signal.
 - London Breakout kekal satu-satunya strategi yang lulus.
+
+## 2026-11-23 — Tokmat Shadow Entry
+
+Dikod dari nota kursus pengguna ("Teknik Rahsia Shadow Entry" dan e-book): zon SnR = shadow candle swing D1/H4; bila
+M5 menyentuh zon, tunggu tutup melepasi dua swing high (buy) / dua swing low (sell) M5, kemudian masuk pada pullback ke
+paras itu. SL di luar titik ekstrem sejak sentuhan zon (20–80 pip), TP 2R, BE 1R, risiko 1%, tanpa martingale/full margin.
+"Pattern rahsia" tidak diperincikan dalam nota, jadi peraturan "pecah 2 level + pullback" dari Easy Setup digunakan.
+
+| Tahun | Trade | Win | PF | Untung |
+|---|---|---|---|---|
+| 2024 | 337 | 42.4% | 0.79 | −$3,184.83 |
+| 2025 | 185 | 36.2% | 0.53 | −$2,279.01 |
+| 2026 | 51 | 13.7% | 0.10 | −$1,205.72 |
+| **Jumlah** | 573 | | | **−$6,669.56**, max DD 67.9% |
+
+- Mengikut regime: hanya HIGH_VOL positif (2024–25: 28 trade, PF 1.99; 2026: 4 trade) — sampel terlalu kecil.
+- 5,915 kali struktur "pecah 2 level"; 2,828 setup di luar sesi/had harian; 1,461 dilangkau kerana SL > 80 pip.
+
+### Kesimpulan
+- Versi yang diuji **tidak lulus**; tidak dimasukkan ke dalam signal.
+- Keputusan ini untuk tafsiran kod di atas, bukan semestinya untuk cara guru mengajar secara visual.
