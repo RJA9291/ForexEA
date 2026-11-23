@@ -178,3 +178,20 @@ paras itu. SL di luar titik ekstrem sejak sentuhan zon (20–80 pip), TP 2R, BE 
 ### Kesimpulan
 - Versi yang diuji **tidak lulus**; tidak dimasukkan ke dalam signal.
 - Keputusan ini untuk tafsiran kod di atas, bukan semestinya untuk cara guru mengajar secara visual.
+
+### Variasi Tokmat (ditetapkan sebelum diuji)
+
+Syarat lulus: PF > 1 dalam 2024–25 **dan** 2026, dengan ≥ 30 trade pada 2026. Peraturan lain sama seperti di atas.
+
+| Variasi | Trade | PF 2024 | PF 2025 | PF 2026 (trade) | Untung | Max DD | Lulus? |
+|---|---|---|---|---|---|---|---|
+| Asal (M5, SL 20–80, TP 2R) | 573 | 0.79 | 0.53 | 0.10 (51) | −$6,670 | 67.9% | Tidak |
+| TP 3R | 558 | 0.77 | 0.57 | 0.09 (54) | −$6,599 | 66.0% | Tidak |
+| SL 30–50 pip | 338 | 0.91 | 0.44 | 0.14 (19) | −$3,995 | 42.6% | Tidak |
+| SL 30–50 + TP 3R | 330 | 0.87 | 0.47 | 0.20 (19) | −$4,048 | 41.0% | Tidak |
+| Sepanjang hari (tiada had sesi) | 720 | 0.66 | 0.72 | 0.40 (55) | −$7,274 | 73.4% | Tidak |
+| M1, SL 30–50 | 1,096 | 0.71 | 0.61 | 0.64 (232) | −$8,514 | 86.2% | Tidak |
+
+- Tiada variasi yang lulus. PF bawah 1 dalam setiap tahun bagi setiap variasi.
+- Varian M1 (sampel terbesar, 232 trade pada 2026) paling jelas: PF 0.64–0.71 sepanjang tiga tahun.
+- Regime HIGH_VOL kadang-kadang positif dalam 2024–25 tetapi hampir tiada trade pada 2026; tidak boleh disahkan.
