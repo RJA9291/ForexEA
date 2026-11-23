@@ -45,3 +45,18 @@ Anti-martingale (1.5% selepas 2 menang) menambah sedikit pulangan tapi drawdown 
 - [Position Sizing and Drawdowns (Macro Ops)](https://operators.macro-ops.com/wp-content/uploads/2017/06/Position-Sizing-and-Drawdowns.pdf)
 - [Risk of ruin in trading (EarnForex)](https://www.earnforex.com/guides/risk-of-ruin-in-trading/)
 - [On drawdown-modulated feedback control in stock trading (arXiv)](https://arxiv.org/pdf/1710.01503)
+
+## Martingale pada teknik Tokmat (2026-11-23)
+
+Trade Tokmat dari backtest dimain semula (`tester/mm_martingale.py`), akaun $10,000, risiko asas 1%, tanpa full margin.
+
+| Kaedah | Tokmat asal (573 trade) | Tokmat SL 30–50 (338) | Tokmat M1 (1,096) |
+|---|---|---|---|
+| Tetap 1% | −73.7% (DD 75.9%) | −40.9% (DD 45.9%) | −90.3% (DD 91.1%) |
+| Martingale ×1.5, had 8% | −99.3% | −81.0% | −99.7% |
+| Martingale ×2, had 8% | −99.8% | −95.0% | −100.0% |
+| Martingale ×2, had 16% | −100.0% | −97.8% | −100.0% |
+| Martingale ×2, tiada had | **Akaun habis** | **Akaun habis** | **Akaun habis** |
+
+Purata setiap trade Tokmat ialah −0.15R hingga −0.23R (edge negatif) dan kalah berturut-turut terpanjang 11–16 kali.
+Martingale tidak boleh menukar edge negatif menjadi positif; ia hanya mempercepat kerugian.
