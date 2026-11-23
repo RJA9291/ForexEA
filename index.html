@@ -15,8 +15,8 @@
 <link rel="icon" type="image/svg+xml" href="./icon.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <style>html,body{margin:0;background:#f3f1ec}@media(prefers-color-scheme:dark){html,body{background:#0f1113}}
-/* The installed app draws under the phone's status bar (black-translucent); the Artifact skeleton adds this padding itself, the PWA page must add it here. */
-html{padding-top:env(safe-area-inset-top,0px)}
+/* The installed app draws under the phone status bar (black-translucent). Pad the body, not html: padding html (with height:100%) let iOS scroll the fixed tab bar with the page. */
+body{padding-top:env(safe-area-inset-top,0px)}
 [hidden]{display:none!important}</style>
 </head>
 <body>
@@ -43,7 +43,6 @@ html{padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 .view{display:flex;flex-direction:column;gap:14px}
-html,body{height:100%}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
 .wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 96px;display:flex;flex-direction:column;gap:14px}
@@ -141,7 +140,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-news" class="view" hidden></section>
   <section id="view-office" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v12</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v13</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
