@@ -49,3 +49,21 @@ Dengan akaun $100 dan had 10%, hanya setup dengan SL minimum (20 pip) yang lepas
 - Jangkaan: backtest rugi pada spread $0.80 (lihat `tester/spread_sensitivity.py`). Tujuan demo ialah membandingkan
   keputusan pasaran sebenar dengan backtest, bukan membuktikan untung.
 - Selepas tukar akaun, MT5 mematikan Algo Trading; butang mesti dihidupkan semula secara manual.
+
+### Clearance dan app (ditambah 2026-11-23, v2.10)
+
+- Signal Engine menulis konteks clearance ke Global Variables MT5 setiap beberapa saat (`AURUM_ctx_*`, lihat
+  `Include/AurumRest.mqh`): tetingkap berita, regime, bias fundamental dan keyakinannya.
+- Sebelum setiap entry, scalper menjalankan clearance sendiri:
+  - **Berita** dalam tetingkap HIGH-impact → NOT_CLEARED (hard stop, trade dilangkau).
+  - **Fundamental** bertentangan dengan keyakinan HIGH → gagal lembut.
+  - **Konteks engine** tiada atau lebih lama dari 5 minit → gagal lembut.
+  - 1 gagal lembut = CAUTION (masih trade), 2 = NOT_CLEARED (dilangkau). Regime direkod sahaja.
+  - Devil's Advocate tidak digunakan: ia mengulas setup London sahaja.
+- Tiada syarat ini diuji dengan backtest untuk scalper. Demo mengumpul trade CLEARED dan CAUTION supaya keputusan
+  kedua-dua kumpulan boleh dibandingkan (tab Sejarah dalam app).
+- Setiap trade dihantar ke jadual `signals` dengan `strategy = M5_SCALPER`; status dikemas kini pada TP1/TP2/TP3
+  dan setiap 60 saat, dan keputusan direkod bila posisi ditutup (juga selepas MT5 restart, melalui `XSC_sig_<ticket>`).
+- Money management London, jurnal mingguan dan Devil's Advocate kini membaca `strategy = LONDON_BREAKOUT` sahaja,
+  supaya trade scalper tidak mengubah statistik signal London.
+- Strategy Tester tidak terjejas: clearance dan penghantaran dimatikan semasa backtest.

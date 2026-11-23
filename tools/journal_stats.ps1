@@ -56,8 +56,8 @@ function ClearanceGroup($closed, $status) {
 }
 
 $select = 'id,created_at,status,side,result_pips,peak_pips,risk_pips,news_risk,escape,clearance'
-$week = Invoke-Supabase -Method GET -Path "/rest/v1/signals?select=$select&created_at=gte.$fromUtc&created_at=lt.$toUtc&order=created_at"
-$all  = Invoke-Supabase -Method GET -Path "/rest/v1/signals?select=$select&created_at=lt.$toUtc&order=created_at"
+$week = Invoke-Supabase -Method GET -Path "/rest/v1/signals?select=$select&strategy=eq.LONDON_BREAKOUT&created_at=gte.$fromUtc&created_at=lt.$toUtc&order=created_at"
+$all  = Invoke-Supabase -Method GET -Path "/rest/v1/signals?select=$select&strategy=eq.LONDON_BREAKOUT&created_at=lt.$toUtc&order=created_at"
 
 $result = [ordered]@{
     week_start         = $monday.ToString('yyyy-MM-dd')

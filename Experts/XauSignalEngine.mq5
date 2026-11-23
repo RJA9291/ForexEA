@@ -10,6 +10,7 @@
 #property version   "1.00"
 
 #include <XauRegime.mqh>
+#include <AurumRest.mqh>
 
 input group "Supabase (keep the service key out of the repo)"
 input string InpSupabaseUrl     = "https://ukzbdszndqvgycsnjeof.supabase.co";   // also add under Tools > Options > Expert Advisors > Allow WebRequest
@@ -251,7 +252,7 @@ void CheckNewsWindow()
    // Local clock, not server time: TimeCurrent() stops at the last tick over weekends.
    MqlDateTime h;
    TimeToStruct(TimeLocal(), h);
-   if(h.hour != newsFetchHour) { newsFetchHour = h.hour; FetchNewsRisk(); UpdateRegime(); }
+   if(h.hour != newsFetchHour) { newsFetchHour = h.hour; FetchNewsRisk(); FetchFundamental(); UpdateRegime(); }
    else if(!regimePushed) UpdateRegime();
 
    bool was = inNewsWindow;
@@ -269,6 +270,16 @@ void CheckNewsWindow()
    if(inNewsWindow != was && (state == ST_PENDING || state == ST_ACTIVE))
       SaveSignal(state == ST_PENDING ? "PENDING" : StatusText(),
                  (state == ST_ACTIVE ? TradeFields() + "," : "") + NewsEscape());
+  }
+
+// XauScalper reads these before each entry (Include/AurumRest.mqh documents the encoding).
+void ExportContext()
+  {
+   GlobalVariableSet(AURUM_GV_NEWS, inNewsWindow ? 1 : 0);
+   GlobalVariableSet(AURUM_GV_REGIME, AurumRegimeCode(regimeNow));
+   GlobalVariableSet(AURUM_GV_FUND, fundBias == "BULLISH" ? 1 : (fundBias == "BEARISH" ? -1 : (fundBias == "NEUTRAL" ? 0 : -9)));
+   GlobalVariableSet(AURUM_GV_FUNDHI, fundConf == "HIGH" ? 1 : 0);
+   GlobalVariableSet(AURUM_GV_TIME, (double)TimeLocal());
   }
 
 string NewsEscape()
@@ -385,7 +396,7 @@ void UpdateMoneyManagement()
    mmMode = "WARMUP";
    mmClosed = 0;
    string resp;
-   if(Rest("GET", "/rest/v1/signals?select=result_pips,risk_pips&status=like.CLOSED*&result_pips=not.is.null&order=created_at.asc",
+   if(Rest("GET", "/rest/v1/signals?select=result_pips,risk_pips&strategy=eq.LONDON_BREAKOUT&status=like.CLOSED*&result_pips=not.is.null&order=created_at.asc",
            "", "", resp) != 200)
       return;
    double eqHist[];
@@ -693,6 +704,7 @@ void OnTimer()
   {
    PushPrice();
    CheckNewsWindow();   // runs on the timer so warnings fire even when no ticks arrive
+   ExportContext();
    RefreshClearance();
   }
 //+------------------------------------------------------------------+

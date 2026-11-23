@@ -140,7 +140,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   <section id="view-news" class="view" hidden></section>
   <section id="view-office" class="view" hidden></section>
   <section id="view-info" class="view" hidden></section>
-  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v13</span></p>
+  <p class="foot">Signal dikira oleh peraturan London Breakout yang diuji. Bukan nasihat kewangan. Anda yang buat keputusan dan masuk trade sendiri. <span id="ver">v14</span></p>
 </main>
 
 <nav class="tabs" aria-label="Menu"><div class="tabs-in" role="tablist">
@@ -171,6 +171,14 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       {id:2, created_at:new Date(Date.now()-27*3600e3).toISOString(), status:"CLOSED_SL", side:"SELL", entry:2655.10, result_pips:-92},
       {id:1, created_at:new Date(Date.now()-51*3600e3).toISOString(), status:"CLOSED_TP", side:"BUY", entry:2611.40, result_pips:215}
     ],
+    scalp: [
+      {id:11, created_at:new Date(Date.now()-40*60e3).toISOString(), strategy:"M5_SCALPER", status:"TP1", side:"SELL", entry:2648.10, sl:2648.00,
+       tp1:2644.60, tp2:2641.10, tp3:2634.10, risk_pips:35, lots:0.05, risk_usd:87.5, running_pips:38.4, peak_pips:41.0, regime:"MIXED",
+       reasons:["Contoh: bias M15 SELL","Contoh: candle HA bear selepas pullback ke EMA20"],
+       stats:{trades:357,win_rate:41.2,pf:0.65,return_pct:-47.4,verdict:"LOSING"},
+       clearance:{status:"CLEARED",stage:"AT_ENTRY",checks:[{id:1,name:"Regime",pass:true,detail:"Regime MIXED"},{id:2,name:"News",pass:true,detail:"Tiada berita TINGGI"},{id:3,name:"Fundamental",pass:true,detail:"Bias NEUTRAL"},{id:4,name:"Engine context",pass:true,detail:"Terkini"}]}},
+      {id:10, created_at:new Date(Date.now()-5*3600e3).toISOString(), strategy:"M5_SCALPER", status:"CLOSED_SL", side:"BUY", entry:2652.30, result_pips:-35, clearance:{status:"CAUTION"}}
+    ],
     news: {brief_date:new Date().toISOString().slice(0,10), risk_level:"MEDIUM",
       summary:"Contoh: data PMI AS petang ini. Tiada ucapan Fed dijadualkan.",
       events:[{at:new Date(Date.now()+2*3600e3).toISOString(), time:"Contoh +2 jam", title:"CPI AS (contoh)", impact:"HIGH"},
@@ -194,7 +202,8 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   var STATUS = {
     PENDING:["Menunggu breakout","gold"], ACTIVE:["Trade berjalan","gold"], TP1:["TP1 kena · SL ke BE","buy"],
     CLOSED_TP:["Ditutup di TP","buy"], CLOSED_SL:["Ditutup di SL","sell"], CLOSED_BE:["Ditutup di BE",""],
-    CLOSED_TIME:["Ditutup tamat sesi",""], CANCELLED:["Tiada breakout hari ini",""], NO_TRADE:["Tiada trade hari ini",""]
+    CLOSED_TIME:["Ditutup tamat sesi",""], CANCELLED:["Tiada breakout hari ini",""], NO_TRADE:["Tiada trade hari ini",""],
+    TP2:["TP2 kena · SL dikunci di TP1","buy"], TP3:["TP3 kena · SL dikunci di TP2","buy"], CLOSED_LOCK:["Ditutup · untung dikunci","buy"]
   };
 
   function lv(label, value, opts){
@@ -220,8 +229,8 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   }
 
   var CLEAR={CLEARED:["CLEARED","buy","Semua syarat lulus."],CAUTION:["CAUTION","warn","Satu syarat gagal. Semak sebelum masuk."],NOT_CLEARED:["NOT CLEARED","sell","Tidak lulus clearance. Sejarah menunjukkan lebih baik tidak masuk."]};
-  var CHECK_MS={"Regime":"Regime","News":"Berita","Fundamental":"Fundamental","Devil's Advocate":"Devil's Advocate"};
-  function clearanceBlock(c){
+  var CHECK_MS={"Regime":"Regime","News":"Berita","Fundamental":"Fundamental","Devil's Advocate":"Devil's Advocate","Engine context":"Data engine"};
+  function clearanceBlock(c, note){
     if(!c) return "";
     var k=CLEAR[c.status]||[c.status,"",""];
     var pre=c.stage==="PRE_TRIGGER"?" (sebelum trigger)":"";
@@ -229,7 +238,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
       '<span class="side '+(k[1]==="buy"?"buy":k[1]==="sell"?"sell":"wait")+'">'+esc(k[0])+'</span></div>'+
       '<small>'+esc(k[2])+'</small><div class="list">'+(c.checks||[]).map(function(x){
         return '<div class="item"><span class="chip '+(x.pass?"buy":"sell")+'">'+(x.pass?"Lulus":"Gagal")+'</span><span>'+esc(CHECK_MS[x.name]||x.name)+'</span><span class="small muted">'+esc(x.detail)+'</span></div>';
-      }).join("")+'</div><small class="muted">Hanya syarat regime disokong backtest. Syarat lain sedang dipantau oleh Ejen Jurnal.</small></div>';
+      }).join("")+'</div><small class="muted">'+esc(note||"Hanya syarat regime disokong backtest. Syarat lain sedang dipantau oleh Ejen Jurnal.")+'</small></div>';
   }
 
   var CAUTION={LOW:["Amaran rendah",""],MEDIUM:["Amaran sederhana","warn"],HIGH:["Amaran tinggi","sell"]};
@@ -273,7 +282,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
   function renderSignal(){
     var s=(data.signals||[])[0], el=document.getElementById("view-signal");
     var nb=newsBanner();
-    if(!s){el.innerHTML=nb+'<div class="card"><h1>XAUUSD</h1><p class="muted">Belum ada signal. Setup London dikira setiap hari pada 14:00 waktu Malaysia.</p></div>';return;}
+    if(!s){el.innerHTML=nb+'<div class="card"><h1>XAUUSD</h1><p class="muted">Belum ada signal. Setup London dikira setiap hari pada 14:00 waktu Malaysia.</p></div>'+scalpCard();return;}
     var st=STATUS[s.status]||[s.status,""], side=s.side, html="";
     var sideHtml = side ? '<span class="side '+(side==="BUY"?"buy":"sell")+'">'+(side==="BUY"?"↗ BUY":"↘ SELL")+'</span>' : '<span class="side wait">Dua arah</span>';
     html+='<div class="card"><div class="row"><div><span class="label">'+esc(when(s.created_at))+'</span><h1>XAUUSD</h1></div>'+sideHtml+'</div>';
@@ -305,7 +314,56 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     html+=critiqueBox(s.critique, s.side);
     html+='</div>';
     html+=statsBlock(s.stats);
-    el.innerHTML=nb+html;
+    el.innerHTML=nb+html+scalpCard();
+  }
+
+  // Demo forward test of XauScalper: the EA trades by itself; shown for comparison with the clearance gate.
+  function scalpCard(){
+    var list=data.scalp||[], s=list[0];
+    var head='<div class="card"><div class="row"><div><span class="label">Demo · auto-trade</span><h2>Scalper M5</h2></div>';
+    if(!s) return head+'<span class="chip">Belum ada trade</span></div><p class="small muted" style="margin:0">XauScalper trade sendiri di akaun demo bila setup lengkap. Trade akan muncul di sini dengan clearance dan keputusan.</p></div>';
+    var st=STATUS[s.status]||[s.status,""], open=!/^CLOSED/.test(s.status);
+    var running=s.result_pips!=null?s.result_pips:s.running_pips;
+    var html=head+'<span class="side '+(s.side==="BUY"?"buy":"sell")+'">'+(s.side==="BUY"?"↗ BUY":"↘ SELL")+'</span></div>';
+    html+='<div class="row"><span class="chip '+st[1]+'">'+esc(st[0])+'</span><span class="chip">'+esc(when(s.created_at))+'</span>'+
+      (s.regime?'<span class="chip">Regime: '+esc(REGIME[s.regime]||s.regime)+'</span>':"")+'</div>';
+    html+='<div class="run"><span class="label">'+(open?"Berjalan":"Keputusan")+'</span><b class="num '+cls(running)+'">'+pips(running)+'</b>'+
+      (s.peak_pips!=null?'<span class="chip">peak '+pips(s.peak_pips)+'</span>':"")+'</div>';
+    if(open) html+='<div class="levels">'+lv("Entry", s.entry, {wide:true})+lv("Stop loss", s.sl)+lv("TP1 · BE", s.tp1)+lv("TP2 · kunci TP1", s.tp2)+lv("TP akhir · 4R", s.tp3)+
+      '<div class="lv"><span class="label">Saiz</span><b class="num">'+f2(s.lots)+' lot</b><small>rugi jika SL: $'+f2(s.risk_usd)+'</small></div></div>';
+    if(s.escape&&s.escape.note) html+='<p class="small muted" style="margin:0">'+esc(s.escape.note)+'</p>';
+    html+=clearanceBlock(s.clearance, "Belum ada data backtest untuk syarat ini pada scalper. Demo ini mengukur sama ada trade CLEARED lebih baik daripada CAUTION.");
+    if(s.reasons&&s.reasons.length) html+='<div class="reasons"><span class="label">Sebab trade</span><ul>'+s.reasons.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+'</ul></div>';
+    var b=s.stats;
+    if(b) html+='<div class="lv"><div class="row"><span class="label">Backtest '+esc(b.trades)+' trade</span><span class="chip sell">'+esc(b.win_rate)+'% menang · PF '+esc(b.pf)+'</span></div>'+
+      '<small>Pulangan '+esc(b.return_pct)+'% dalam setahun pada spread InstaForex. Strategi ini rugi dalam backtest; demo ini menguji sama ada keputusan sebenar sama.</small></div>';
+    return html+'</div>';
+  }
+
+  function scalpSummary(list){
+    var c=list.filter(function(s){return /^CLOSED/.test(s.status);});
+    var w=c.filter(function(s){return s.result_pips>0;}).length;
+    return {n:c.length, rate:c.length?Math.round(w/c.length*1000)/10:null, total:c.reduce(function(a,s){return a+(Number(s.result_pips)||0);},0)};
+  }
+  function scalpHistory(){
+    var list=data.scalp||[];
+    var all=scalpSummary(list);
+    function row(label, sub){
+      var x=scalpSummary(sub);
+      return '<div class="stat"><span class="label">'+label+'</span><b class="num">'+(x.rate==null?"—":x.rate+"%")+'</b><small class="muted">'+x.n+' trade · '+(x.n?pips(x.total):"—")+'</small></div>';
+    }
+    var html='<div class="card"><div class="row"><h2>Scalper demo</h2><span class="chip">backtest 41.2%</span></div>'+
+      '<div class="stats"><div class="stat"><span class="label">Semua</span><b class="num">'+(all.rate==null?"—":all.rate+"%")+'</b><small class="muted">'+all.n+' trade · '+(all.n?pips(all.total):"—")+'</small></div>'+
+      row("CLEARED", list.filter(function(s){return s.clearance&&s.clearance.status==="CLEARED";}))+
+      row("CAUTION", list.filter(function(s){return s.clearance&&s.clearance.status==="CAUTION";}))+'</div>'+
+      '<p class="small muted" style="margin:0">Jika trade CLEARED lebih baik daripada CAUTION selepas banyak trade, clearance gate menambah nilai. Sampel kecil berubah-ubah.</p>';
+    html+='<div class="list">'+list.slice(0,20).map(function(s){
+      var st=STATUS[s.status]||[s.status,""], cl=s.clearance&&CLEAR[s.clearance.status];
+      return '<div class="item"><span class="chip '+(s.side==="BUY"?"buy":"sell")+'">'+esc(s.side||"—")+'</span>'+
+        '<div><div>'+esc(st[0])+(cl?' <span class="chip '+cl[1]+'">'+esc(cl[0])+'</span>':"")+'</div><div class="small muted">'+esc(when(s.created_at))+'</div></div>'+
+        '<b class="num '+cls(s.result_pips)+'">'+(s.result_pips!=null?pips(s.result_pips):"")+'</b></div>';
+    }).join("")+'</div></div>';
+    return html;
   }
 
   function renderHistory(){
@@ -324,7 +382,7 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
         '<div><div>'+esc(st[0])+(cl?' <span class="chip '+cl[1]+'">'+esc(cl[0])+'</span>':"")+'</div><div class="small muted">'+esc(when(s.created_at))+'</div></div>'+
         '<b class="num '+cls(s.result_pips)+'">'+(s.result_pips!=null?pips(s.result_pips):"")+'</b></div>';
     }).join("")+'</div></div>';
-    document.getElementById("view-history").innerHTML=journalCard()+html;
+    document.getElementById("view-history").innerHTML=journalCard()+html+scalpHistory();
   }
 
   function journalCard(){
@@ -581,12 +639,13 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-t
     if(!SB_URL||!SB_KEY){data=DEMO;demo=true;render();return;}
     Promise.all([
       get("market?symbol=eq.XAUUSD&limit=1"),
-      get("signals?order=created_at.desc&limit=40"),
+      get("signals?strategy=neq.M5_SCALPER&order=created_at.desc&limit=40"),
       get("news_briefs?order=brief_date.desc&limit=1"),
       get("journal_reports?order=week_start.desc&limit=1"),
-      get("fundamental_briefs?order=brief_date.desc&limit=1")
+      get("fundamental_briefs?order=brief_date.desc&limit=1"),
+      get("signals?strategy=eq.M5_SCALPER&order=created_at.desc&limit=200")
     ]).then(function(res){
-      data={market:res[0][0]||null,signals:res[1],news:res[2][0]||null,journal:res[3][0]||null,fund:res[4][0]||null};demo=false;render();
+      data={market:res[0][0]||null,signals:res[1],news:res[2][0]||null,journal:res[3][0]||null,fund:res[4][0]||null,scalp:res[5]};demo=false;render();
     }).catch(function(){
       if(!data){data=DEMO;demo=true;}
       render();

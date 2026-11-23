@@ -9,9 +9,10 @@
 //+------------------------------------------------------------------+
 #property copyright "RJA9291"
 #property link      "https://github.com/RJA9291/ForexEA"
-#property version   "2.00"
+#property version   "2.10"
 
 #include <Trade/Trade.mqh>
+#include <AurumRest.mqh>
 
 input group "Risk"
 input double InpRiskPercent     = 1.0;   // Risk per trade (% of equity)
@@ -58,6 +59,12 @@ input group "Session (broker server time)"
 input int    InpStartHour       = 15;    // 15-19 = London-NY overlap on a GMT+2 server (InstaForex winter time)
 input int    InpEndHour         = 19;
 
+input group "Clearance and signal app (live/demo only, ignored by the Strategy Tester)"
+input bool   InpUseClearance    = true;  // Skip entries the clearance gate marks NOT_CLEARED (needs XauSignalEngine running)
+input bool   InpPublish         = true;  // Send every trade to the signal app (Supabase)
+input string InpSupabaseUrl     = "https://ukzbdszndqvgycsnjeof.supabase.co";
+input int    InpContextMaxAgeSec = 300;  // Engine context older than this counts as missing
+
 input group "General"
 input ulong  InpMagic           = 920101;
 input bool   InpGoldOnly        = true;
@@ -77,6 +84,11 @@ bool     killSwitchLogged = false;
 string   tallyNames[];
 int      tallyCounts[];
 string   peakVar;
+bool     live = false;               // false in the Strategy Tester: no clearance, no publishing
+CAurumRest rest;
+string   pubStage = "";
+datetime pubTime = 0;
+datetime lastSync = 0;
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -108,6 +120,10 @@ int OnInit()
    if(!GlobalVariableCheck(peakVar))
       GlobalVariableSet(peakVar, AccountInfoDouble(ACCOUNT_EQUITY));
 
+   live = !MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_OPTIMIZATION);
+   if(live && InpPublish && !rest.Init(InpSupabaseUrl, "XauScalper"))
+      Print("XauScalper: no SUPABASE_SERVICE_KEY in MQL5\\Files\\aurum.env - trades will not appear in the app.");
+
    PrintFormat("XauScalper spec: digits %d contract %g minLot %g tickValue %g spread %d stopsLevel %d",
                (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS),
                SymbolInfoDouble(_Symbol, SYMBOL_TRADE_CONTRACT_SIZE), SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN),
@@ -134,6 +150,11 @@ void OnTick()
   {
    UpdateEquityPeak();
    ManagePositions();
+   if(live && rest.Ready() && TimeCurrent() - lastSync >= 10)
+     {
+      lastSync = TimeCurrent();
+      SyncClosed();
+     }
 
    datetime barTime = iTime(_Symbol, InpEntryTF, 0);
    if(barTime == 0 || barTime == lastEntryBar)
@@ -409,6 +430,14 @@ void Evaluate()
    double lots = LotsForRisk(risk, type, entry);
    if(lots <= 0)                 { Status(head, "Minimum lot exceeds risk cap - skipped"); return; }
 
+   string clearStatus = "", clearChecks = "", regimeName = "";
+   if(live)
+     {
+      clearStatus = Clearance(bias, clearChecks, regimeName);
+      if(InpUseClearance && clearStatus == "NOT_CLEARED")
+                                 { Status(head, "Clearance NOT_CLEARED - skipped"); return; }
+     }
+
    bool ok = bias > 0 ? trade.Buy(lots, _Symbol, 0, sl, tp, "XSC buy")
                       : trade.Sell(lots, _Symbol, 0, sl, tp, "XSC sell");
    if(ok)
@@ -417,6 +446,9 @@ void Evaluate()
                                 EnumToString(InpBiasTF), InpBiasFastEMA, InpBiasSlowEMA, pattern,
                                 risk / pip, InpSwingBars);
       Tally("Trade opened");
+      if(live && rest.Ready())
+         PublishOpen(trade.ResultOrder(), bias, trade.ResultPrice() > 0 ? trade.ResultPrice() : entry, sl, lots,
+                     pattern, spread, clearStatus, clearChecks, regimeName);
      }
    else
       Status(head, "Order failed - see Experts log");
@@ -491,6 +523,17 @@ void ManagePositions()
          if(trade.PositionModify(ticket, lock, tp))
             sl = lock;
 
+      if(live && rest.Ready())
+        {
+         string code = hit3 ? "TP3" : (hit2 ? "TP2" : (hit1 ? "TP1" : "ACTIVE"));
+         if(code != pubStage || TimeCurrent() - pubTime >= 60)
+           {
+            pubStage = code; pubTime = TimeCurrent();
+            PublishUpdate(ticket, StringFormat("\"status\":%s,\"sl\":%s,\"running_pips\":%.1f,\"peak_pips\":%.1f",
+                                               AurumJStr(code), DoubleToString(sl, digits), runPips, peakPips));
+           }
+        }
+
       if(InpShowStatus)
          Comment(StringFormat("XAUUSD %s  |  %s\nRUNNING %+.1f pip   (peak %+.1f)\nENTRY %.2f   SL %.2f\n"
                               "TP1 %.2f %s   TP2 %.2f %s   TP3 %.2f %s   FINAL %.2f\nSIGNAL REASON\n%s",
@@ -500,5 +543,153 @@ void ManagePositions()
      }
    if(!found)
       trackedTicket = 0;
+  }
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//| Clearance gate for scalper entries. Context comes from the       |
+//| Signal Engine (global variables). News window is the hard stop;  |
+//| fundamental bias against the trade with HIGH confidence, or      |
+//| missing engine context, are soft failures (1 = CAUTION, 2 =      |
+//| NOT_CLEARED). Regime is recorded only: no scalper regime data.   |
+//| None of these checks is backtested for the scalper; the demo     |
+//| records them so CLEARED vs CAUTION results can be compared.      |
+//+------------------------------------------------------------------+
+string CheckJson(const int id, const string name, const bool pass, const string detail)
+  {
+   return StringFormat("{\"id\":%d,\"name\":%s,\"pass\":%s,\"detail\":%s}", id, AurumJStr(name), pass ? "true" : "false", AurumJStr(detail));
+  }
+
+string Clearance(const int dir, string &checks, string &regimeName)
+  {
+   bool fresh = GlobalVariableCheck(AURUM_GV_TIME) &&
+                (double)TimeLocal() - GlobalVariableGet(AURUM_GV_TIME) <= InpContextMaxAgeSec;
+   bool news  = fresh && GlobalVariableGet(AURUM_GV_NEWS) > 0.5;
+   int  fund  = fresh ? (int)MathRound(GlobalVariableGet(AURUM_GV_FUND)) : -9;
+   bool high  = fresh && GlobalVariableGet(AURUM_GV_FUNDHI) > 0.5;
+   regimeName = fresh ? AurumRegimeName((int)MathRound(GlobalVariableGet(AURUM_GV_REGIME))) : "";
+
+   bool opposite = (dir > 0 && fund == -1) || (dir < 0 && fund == 1);
+   string fundText = fund == -9 ? "No fundamental brief today" :
+                     StringFormat("Bias %s%s%s", fund > 0 ? "BULLISH" : (fund < 0 ? "BEARISH" : "NEUTRAL"),
+                                  high ? " (HIGH)" : "", opposite ? " against this side" : "");
+   bool cNews = !news, cFund = !(opposite && high), cCtx = fresh;
+   checks = "[" +
+      CheckJson(1, "Regime", true, regimeName == "" ? "Regime unknown" : "Regime " + regimeName + " (recorded only, no scalper data per regime)") + "," +
+      CheckJson(2, "News", cNews, !fresh ? "Unknown: Signal Engine context missing" :
+                                  (news ? "Inside a HIGH-impact news window" : "No HIGH-impact news window now")) + "," +
+      CheckJson(3, "Fundamental", cFund, fundText) + "," +
+      CheckJson(4, "Engine context", cCtx, cCtx ? "Signal Engine context is current" : "Signal Engine not running or stale") + "]";
+   int soft = (cFund ? 0 : 1) + (cCtx ? 0 : 1);
+   return (!cNews || soft >= 2) ? "NOT_CLEARED" : (soft == 1 ? "CAUTION" : "CLEARED");
+  }
+
+//+------------------------------------------------------------------+
+//| Signal app publishing. Each position maps to one signals row;    |
+//| the row id is kept in global variable XSC_sig_<ticket> so the    |
+//| close is still recorded after a terminal restart.                |
+//+------------------------------------------------------------------+
+string SigVar(const ulong ticket) { return StringFormat("XSC_sig_%I64u", ticket); }
+
+void PublishOpen(const ulong ticket, const int dir, const double open, const double sl, const double lots,
+                 const string pattern, const double spread, const string clearStatus, const string checks, const string regimeName)
+  {
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   double pip = PipSize();
+   double risk = MathAbs(open - sl);
+   double tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE_LOSS);
+   if(tickValue <= 0) tickValue = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
+   double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+   double riskUsd = tickSize > 0 ? lots * risk / tickSize * tickValue : 0;
+   if(risk <= 0) return;
+
+   string reasons = "[" +
+      AurumJStr(StringFormat("%s bias %s: EMA%d %s EMA%d and close %s EMA%d", EnumToString(InpBiasTF), dir > 0 ? "BUY" : "SELL",
+                             InpBiasFastEMA, dir > 0 ? "above" : "below", InpBiasSlowEMA, dir > 0 ? "above" : "below", InpBiasFastEMA)) + "," +
+      AurumJStr(pattern + StringFormat(" (pullback within %.1f ATR in the last 3 bars)", InpTouchATR)) + "," +
+      AurumJStr(StringFormat("SL %.0f pip beyond the %d-bar swing. Checkpoints: %.0fR break even, %.0fR lock TP1, %.0fR lock TP2, final %.0fR",
+                             risk / pip, InpSwingBars, InpTP1R, InpTP2R, InpTP3R, InpFinalTPR)) + "," +
+      AurumJStr(StringFormat("Time stop: closes if %.0fR is not reached within %d bars", InpTP1R, InpTimeStopBars)) + "," +
+      AurumJStr(StringFormat("Risk %.1f%% of equity: %.2f lots, $%.2f at SL", InpRiskPercent, lots, riskUsd)) + "," +
+      AurumJStr(StringFormat("Spread %.0f points = %.0f%% of the SL distance", spread / SymbolInfoDouble(_Symbol, SYMBOL_POINT), spread / risk * 100.0)) + "," +
+      AurumJStr("Demo forward test: the EA places and manages this trade itself") + "]";
+
+   // XauScalper with the demo inputs (no ADX, no strong-HA, swing 5, SL max 60) over Nov 2025 - Nov 2026,
+   // session 09-21 server: docs/backtests.md variant E; win rate from tester/spread_sensitivity.py.
+   string stats = "{\"source\":\"backtest Nov 2025 - Nov 2026, session 09-21 server\",\"trades\":357,\"win_rate\":41.2,"
+                  "\"pf\":0.65,\"return_pct\":-47.4,\"verdict\":\"LOSING\"}";
+   string clearance = clearStatus == "" ? "null" :
+                      StringFormat("{\"status\":%s,\"stage\":\"AT_ENTRY\",\"checks\":%s,\"decided_at\":%s}",
+                                   AurumJStr(clearStatus), checks, AurumJStr(AurumIso(TimeGMT())));
+   string body = StringFormat("{\"strategy\":\"M5_SCALPER\",\"symbol\":%s,\"status\":\"ACTIVE\",\"side\":%s,"
+                              "\"entry\":%s,\"sl\":%s,\"tp1\":%s,\"tp2\":%s,\"tp3\":%s,\"risk_pips\":%.1f,"
+                              "\"lots\":%.2f,\"risk_usd\":%.2f,\"running_pips\":0,\"peak_pips\":0,\"regime\":%s,",
+                              AurumJStr(_Symbol), AurumJStr(dir > 0 ? "BUY" : "SELL"),
+                              DoubleToString(open, digits), DoubleToString(sl, digits),
+                              DoubleToString(open + dir * risk * InpTP1R, digits), DoubleToString(open + dir * risk * InpTP2R, digits),
+                              DoubleToString(open + dir * risk * InpFinalTPR, digits), risk / pip, lots, riskUsd,
+                              regimeName == "" ? "null" : AurumJStr(regimeName)) +
+                 "\"reasons\":" + reasons + ",\"stats\":" + stats + ",\"clearance\":" + clearance + "}";
+   string resp;
+   if(rest.Send("POST", "/rest/v1/signals", body, "return=representation", resp) < 300)
+     {
+      int p = StringFind(resp, "\"id\":");
+      if(p >= 0) GlobalVariableSet(SigVar(ticket), (double)StringToInteger(StringSubstr(resp, p + 5, 20)));
+     }
+   pubStage = "ACTIVE"; pubTime = TimeCurrent();
+  }
+
+void PublishUpdate(const ulong ticket, const string fields)
+  {
+   if(!GlobalVariableCheck(SigVar(ticket))) return;
+   long id = (long)GlobalVariableGet(SigVar(ticket));
+   string resp;
+   rest.Send("PATCH", "/rest/v1/signals?id=eq." + IntegerToString(id),
+             "{" + fields + ",\"updated_at\":" + AurumJStr(AurumIso(TimeGMT())) + "}", "", resp);
+  }
+
+// Records the result of every published position that is no longer open.
+void SyncClosed()
+  {
+   for(int i = GlobalVariablesTotal() - 1; i >= 0; i--)
+     {
+      string name = GlobalVariableName(i);
+      if(StringFind(name, "XSC_sig_") != 0) continue;
+      ulong ticket = (ulong)StringToInteger(StringSubstr(name, 8));
+      if(PositionSelectByTicket(ticket)) continue;
+      if(!HistorySelectByPosition(ticket)) continue;
+
+      double open = 0, exitPrice = 0, usd = 0;
+      int dir = 0;
+      long reason = -1;
+      for(int k = 0; k < HistoryDealsTotal(); k++)
+        {
+         ulong d = HistoryDealGetTicket(k);
+         if(d == 0) continue;
+         usd += HistoryDealGetDouble(d, DEAL_PROFIT) + HistoryDealGetDouble(d, DEAL_SWAP) + HistoryDealGetDouble(d, DEAL_COMMISSION);
+         if(HistoryDealGetInteger(d, DEAL_ENTRY) == DEAL_ENTRY_IN)
+           {
+            open = HistoryDealGetDouble(d, DEAL_PRICE);
+            dir = HistoryDealGetInteger(d, DEAL_TYPE) == DEAL_TYPE_BUY ? 1 : -1;
+           }
+         else
+           {
+            exitPrice = HistoryDealGetDouble(d, DEAL_PRICE);
+            reason = HistoryDealGetInteger(d, DEAL_REASON);
+           }
+        }
+      if(dir == 0 || exitPrice == 0) continue;   // history not synced yet; retry next pass
+
+      double pips = (exitPrice - open) * dir / PipSize();
+      string status = reason == DEAL_REASON_TP ? "CLOSED_TP" :
+                      reason == DEAL_REASON_SL ? (pips < -2 ? "CLOSED_SL" : (pips <= 2 ? "CLOSED_BE" : "CLOSED_LOCK")) :
+                      "CLOSED_TIME";
+      int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+      PublishUpdate(ticket, StringFormat("\"status\":%s,\"result_pips\":%.1f,\"running_pips\":%.1f,\"escape\":{\"note\":%s}",
+                                         AurumJStr(status), pips, pips,
+                                         AurumJStr(StringFormat("Closed at %s, demo P/L $%.2f", DoubleToString(exitPrice, digits), usd))));
+      GlobalVariableDel(name);
+      PrintFormat("XauScalper: published close of #%I64u: %s %+.1f pip ($%.2f)", ticket, status, pips, usd);
+     }
   }
 //+------------------------------------------------------------------+
