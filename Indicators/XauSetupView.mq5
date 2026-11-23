@@ -62,6 +62,8 @@ double emaM5[], ema50[], ema200[], buyArr[], sellArr[];
 double haO[], haH[], haL[], haC[], haClr[];
 int    hEMA, hATR, hFast, hSlow;
 datetime lastBar = 0;
+bool     drawn = false;
+bool     pending = true;
 long   prevMode, prevBull, prevBear, prevUp, prevDown, prevLine;
 
 int OnInit()
@@ -96,21 +98,24 @@ int OnInit()
    prevUp   = ChartGetInteger(0, CHART_COLOR_CHART_UP);
    prevDown = ChartGetInteger(0, CHART_COLOR_CHART_DOWN);
    prevLine = ChartGetInteger(0, CHART_COLOR_CHART_LINE);
-   if(InpShowHA)
-     {
-      ChartSetInteger(0, CHART_MODE, CHART_CANDLES);
-      ChartSetInteger(0, CHART_COLOR_CANDLE_BULL, clrNONE);
-      ChartSetInteger(0, CHART_COLOR_CANDLE_BEAR, clrNONE);
-      ChartSetInteger(0, CHART_COLOR_CHART_UP, clrNONE);
-      ChartSetInteger(0, CHART_COLOR_CHART_DOWN, clrNONE);
-     }
+   EventSetTimer(1);
    IndicatorSetString(INDICATOR_SHORTNAME, "XauSetupView");
    return INIT_SUCCEEDED;
   }
 
+void HideCandles()
+  {
+   ChartSetInteger(0, CHART_MODE, CHART_CANDLES);
+   ChartSetInteger(0, CHART_COLOR_CANDLE_BULL, clrNONE);
+   ChartSetInteger(0, CHART_COLOR_CANDLE_BEAR, clrNONE);
+   ChartSetInteger(0, CHART_COLOR_CHART_UP, clrNONE);
+   ChartSetInteger(0, CHART_COLOR_CHART_DOWN, clrNONE);
+  }
+
 void OnDeinit(const int reason)
   {
-   if(!InpShowHA) return;
+   EventKillTimer();
+   if(!InpShowHA || !drawn) return;
    ChartSetInteger(0, CHART_MODE, prevMode);
    ChartSetInteger(0, CHART_COLOR_CANDLE_BULL, prevBull);
    ChartSetInteger(0, CHART_COLOR_CANDLE_BEAR, prevBear);
@@ -125,14 +130,16 @@ double M15Value(const int handle, const int shift)
    return CopyBuffer(handle, 0, shift, 1, v) == 1 ? v[0] : EMPTY_VALUE;
   }
 
-int OnCalculate(const int rates_total, const int prev_calculated, const datetime &time[],
-                const double &open[], const double &high[], const double &low[], const double &close[],
-                const long &tick_volume[], const long &volume[], const int &spread[])
+// Runs from the timer only: inside OnCalculate the M15 averages are not yet updated for the
+// current pass, and the timer also draws while the market is closed and no ticks arrive.
+bool Calc(const int rates_total, const int prev_calculated, const datetime &time[],
+          const double &open[], const double &high[], const double &low[], const double &close[])
   {
-   if(rates_total < InpATRBaseline + 10) return 0;
+   if(rates_total < InpATRBaseline + 10) return false;
    double atr[];
-   if(CopyBuffer(hEMA, 0, 0, rates_total, emaM5) != rates_total) return 0;
-   if(CopyBuffer(hATR, 0, 0, rates_total, atr) != rates_total) return 0;
+   if(CopyBuffer(hEMA, 0, 0, rates_total, emaM5) != rates_total) return false;
+   if(CopyBuffer(hATR, 0, 0, rates_total, atr) != rates_total) return false;
+   if(BarsCalculated(hFast) <= 0 || BarsCalculated(hSlow) <= 0) return false;
 
    int start = MathMax(InpATRBaseline + 5, rates_total - InpBars);
    bool full = time[rates_total - 1] != lastBar || prev_calculated == 0;
@@ -200,6 +207,30 @@ int OnCalculate(const int rates_total, const int prev_calculated, const datetime
       if(bias > 0) buyArr[j] = low[j] - 0.4 * atr[j];
       else         sellArr[j] = high[j] + 0.4 * atr[j];
      }
+   if(InpShowHA) HideCandles();
+   drawn = true;
+   ChartRedraw();
+   return true;
+  }
+
+int OnCalculate(const int rates_total, const int prev_calculated, const datetime &time[],
+                const double &open[], const double &high[], const double &low[], const double &close[],
+                const long &tick_volume[], const long &volume[], const int &spread[])
+  {
+   if(rates_total > 0 && time[rates_total - 1] != lastBar) pending = true;
    return rates_total;
+  }
+
+void OnTimer()
+  {
+   if(!pending) return;
+   int n = ArraySize(haO);
+   MqlRates r[];
+   if(n == 0 || CopyRates(_Symbol, _Period, 0, n, r) != n) return;
+   datetime t[]; double o[], h[], l[], c[];
+   ArrayResize(t, n); ArrayResize(o, n); ArrayResize(h, n); ArrayResize(l, n); ArrayResize(c, n);
+   for(int i = 0; i < n; i++) { t[i] = r[i].time; o[i] = r[i].open; h[i] = r[i].high; l[i] = r[i].low; c[i] = r[i].close; }
+   lastBar = 0;
+   if(Calc(n, 0, t, o, h, l, c)) pending = false;
   }
 //+------------------------------------------------------------------+
