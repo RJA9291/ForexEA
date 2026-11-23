@@ -55,6 +55,7 @@ input double InpSRTouchATR      = 0.15;  // how close a candle must come to a le
 input double InpTkMinSLPips     = 20;    // Tokmat: SL distance floor (1 pip = 0.10)
 input double InpTkMaxSLPips     = 80;    // Tokmat: skip the setup if the SL would be wider
 input int    InpTkTouchHours    = 12;    // Tokmat: how long a zone touch stays valid
+input ENUM_TIMEFRAMES InpTkTF  = PERIOD_M5; // Tokmat: entry timeframe (notes allow M1 or M5)
 input ulong  InpMagic           = 920300;
 
 CTrade     trade;
@@ -67,7 +68,7 @@ int      tallyCounts[];
 //+------------------------------------------------------------------+
 ENUM_TIMEFRAMES SignalTF()
   {
-   if(InpStrategy == LAB_TOKMAT) return PERIOD_M5;
+   if(InpStrategy == LAB_TOKMAT) return InpTkTF;
    return InpStrategy == LAB_SR_BOUNCE ? PERIOD_M15 : PERIOD_H1;
   }
 string StrategyName()
@@ -272,7 +273,7 @@ bool IsFractalLow(const ENUM_TIMEFRAMES tf, const int i, const int s)
 // Buy: swing low, zone = lower wick [low, body low]. Sell: swing high, zone = upper wick [body high, high].
 bool TouchedShadowZone(const int dir, double &zlo, double &zhi)
   {
-   double l1 = iLow(_Symbol, PERIOD_M5, 1), h1 = iHigh(_Symbol, PERIOD_M5, 1), c1 = iClose(_Symbol, PERIOD_M5, 1);
+   double l1 = iLow(_Symbol, InpTkTF, 1), h1 = iHigh(_Symbol, InpTkTF, 1), c1 = iClose(_Symbol, InpTkTF, 1);
    ENUM_TIMEFRAMES tfs[2] = {PERIOD_D1, PERIOD_H4};
    int depth[2] = {60, 120};
    for(int t = 0; t < 2; t++)
@@ -300,10 +301,10 @@ bool TwoStructureLevels(const int dir, const datetime since, double &level)
    level = 0;
    for(int i = 3; i < 150; i++)
      {
-      if(iTime(_Symbol, PERIOD_M5, i) < since) break;
-      bool sw = dir > 0 ? IsFractalHigh(PERIOD_M5, i, 2) : IsFractalLow(PERIOD_M5, i, 2);
+      if(iTime(_Symbol, InpTkTF, i) < since) break;
+      bool sw = dir > 0 ? IsFractalHigh(InpTkTF, i, 2) : IsFractalLow(InpTkTF, i, 2);
       if(!sw) continue;
-      double v = dir > 0 ? iHigh(_Symbol, PERIOD_M5, i) : iLow(_Symbol, PERIOD_M5, i);
+      double v = dir > 0 ? iHigh(_Symbol, InpTkTF, i) : iLow(_Symbol, InpTkTF, i);
       level = found == 0 ? v : (dir > 0 ? MathMax(level, v) : MathMin(level, v));
       if(++found == 2) return true;
      }
@@ -313,8 +314,8 @@ bool TwoStructureLevels(const int dir, const datetime since, double &level)
 void TokmatStep(const bool mayEnter)
   {
    double pip = SymbolInfoDouble(_Symbol, SYMBOL_POINT) * 10;
-   double o1 = iOpen(_Symbol, PERIOD_M5, 1), h1 = iHigh(_Symbol, PERIOD_M5, 1), l1 = iLow(_Symbol, PERIOD_M5, 1), c1 = iClose(_Symbol, PERIOD_M5, 1);
-   datetime t1 = iTime(_Symbol, PERIOD_M5, 1);
+   double o1 = iOpen(_Symbol, InpTkTF, 1), h1 = iHigh(_Symbol, InpTkTF, 1), l1 = iLow(_Symbol, InpTkTF, 1), c1 = iClose(_Symbol, InpTkTF, 1);
+   datetime t1 = iTime(_Symbol, InpTkTF, 1);
    for(int k = 0; k < 2; k++)
      {
       int dir = k == 0 ? 1 : -1;

@@ -9,24 +9,36 @@ $outDir    = Join-Path $PSScriptRoot "variants"
 New-Item -ItemType Directory -Force $outDir | Out-Null
 if (Get-Process terminal64 -ErrorAction SilentlyContinue) { throw "Close MetaTrader 5 first." }
 
-# The tester reuses inputs from the previous run for anything not listed, so all inputs are explicit.
-function Inputs([int]$strategy) {
-    @(
-        "InpStrategy=$strategy||1||1||4||N",
-        "InpTkMinSLPips=20||10||5||50||N", "InpTkMaxSLPips=80||40||10||150||N", "InpTkTouchHours=12||4||2||24||N", "InpRiskPercent=1.0||1.0||0.1||5||N", "InpTPR=2.0||1||0.5||5||N",
-        "InpBreakevenR=1.0||0||0.5||3||N", "InpSLBufferATR=0.2||0||0.1||1||N", "InpMinSLATR=0.3||0.1||0.1||1||N",
-        "InpMaxSLATR=2.0||1||0.5||5||N", "InpMaxTradesPerDay=2||1||1||10||N", "InpStartHour=8||0||1||23||N",
-        "InpEndHour=21||0||1||23||N", "InpMaxSpreadPoints=150||50||10||300||N", "InpSRTouchATR=0.15||0.05||0.05||1||N"
-    )
+# The tester reuses inputs from the previous run for anything not listed, so every input is written for every run.
+$defaults = [ordered]@{
+    InpStrategy = 1; InpRiskPercent = 1.0; InpTPR = 2.0; InpBreakevenR = 1.0; InpSLBufferATR = 0.2; InpMinSLATR = 0.3
+    InpMaxSLATR = 2.0; InpMaxTradesPerDay = 2; InpStartHour = 8; InpEndHour = 21; InpMaxSpreadPoints = 150
+    InpSRTouchATR = 0.15; InpTkMinSLPips = 20; InpTkMaxSLPips = 80; InpTkTouchHours = 12; InpTkTF = 5   # 5 = M5, 1 = M1
 }
-$variants = [ordered]@{ "lab_bbma_reentry" = 1; "lab_bbma_extreme" = 2; "lab_sr_bounce" = 3; "lab_tokmat" = 4 }
+function Inputs($over) {
+    $v = [ordered]@{}; foreach ($k in $defaults.Keys) { $v[$k] = $defaults[$k] }
+    foreach ($k in $over.Keys) { $v[$k] = $over[$k] }
+    foreach ($k in $v.Keys) { "$k=$($v[$k])||$($v[$k])||0||$($v[$k])||N" }
+}
+# Tokmat variants were declared before any of them was run. Pass rule: PF > 1 in 2024-25 AND in 2026, with >= 30 trades in 2026.
+$variants = [ordered]@{
+    "lab_bbma_reentry"   = @{ InpStrategy = 1 }
+    "lab_bbma_extreme"   = @{ InpStrategy = 2 }
+    "lab_sr_bounce"      = @{ InpStrategy = 3 }
+    "lab_tokmat"         = @{ InpStrategy = 4 }
+    "tk_tp3"             = @{ InpStrategy = 4; InpTPR = 3.0 }
+    "tk_sl30_50"         = @{ InpStrategy = 4; InpTkMinSLPips = 30; InpTkMaxSLPips = 50 }
+    "tk_sl30_50_tp3"     = @{ InpStrategy = 4; InpTkMinSLPips = 30; InpTkMaxSLPips = 50; InpTPR = 3.0 }
+    "tk_allday"          = @{ InpStrategy = 4; InpStartHour = 0; InpEndHour = 24 }
+    "tk_m1_sl30_50"      = @{ InpStrategy = 4; InpTkTF = 1; InpTkMinSLPips = 30; InpTkMaxSLPips = 50 }
+}
 
 foreach ($name in $variants.Keys) {
     if ($Only.Count -gt 0 -and $Only -notcontains $name) { continue }
     $ini = Join-Path $outDir "$name.ini"
     (@("[Tester]", "Expert=XauStrategyLab.ex5", "Symbol=XAUUSD", "Period=M5", "Model=0", "Optimization=0",
        "FromDate=2024.01.02", "ToDate=2026.11.20", "ForwardMode=0", "Deposit=10000", "Currency=USD", "Leverage=100",
-       "ExecutionMode=0", "ShutdownTerminal=1", "", "[TesterInputs]") + (Inputs $variants[$name])) | Set-Content $ini -Encoding ascii
+       "ExecutionMode=0", "ShutdownTerminal=1", "", "[TesterInputs]") + @(Inputs $variants[$name])) | Set-Content $ini -Encoding ascii
 
     $p = Start-Process $terminal -ArgumentList "/config:`"$ini`"" -PassThru
     $p.WaitForExit(3600000) | Out-Null
