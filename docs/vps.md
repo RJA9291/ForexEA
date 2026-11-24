@@ -14,6 +14,52 @@ hingga 21:48 dan kedua-dua EA offline sepanjang sesi London dan New York; VPS me
   pembekal tertentu.
 - Pembekal akan beri **alamat IP, nama pengguna dan kata laluan** VPS. Simpan sendiri; jangan tulis dalam repo.
 
+### 1a. Pilihan percuma: Azure akaun percuma (dipilih 2026-11-24)
+
+Akaun percuma Azure memberi VM Windows **B1s** (1 vCPU, 1 GB RAM) sehingga 750 jam sebulan, percuma 12 bulan.
+Label di portal mungkin berbeza sedikit. Pilih hanya pilihan yang bertanda **"Free services eligible"**.
+
+1. **Daftar**:
+   - Buka https://azure.microsoft.com/free dan klik **Start free**.
+   - Log masuk dengan akaun Microsoft.
+   - Sahkan nombor telefon dan masukkan kad debit/kredit sendiri. Kad prepaid tidak diterima. Ada hold pengesahan
+     lebih kurang $1.
+2. **Pasang amaran kos dahulu**:
+   - Di portal, cari **Cost Management → Budgets → Add**.
+   - Tetapkan bajet **$1** sebulan, dengan e-mel amaran pada 80%.
+3. **Cipta VM**:
+   - Di portal, cari **Virtual machines → Create → Azure virtual machine**.
+   - **Resource group**: Create new → `forexea`.
+   - **Virtual machine name**: `forexea-vps`.
+   - **Region**: **(Europe) Germany West Central**. Ini Frankfurt.
+   - **Availability options**: No infrastructure redundancy required.
+   - **Image**: *See all images*, cari `smalldisk`, pilih **[smalldisk] Windows Server 2022 Datacenter**.
+     Cakera 30 GB ini muat dalam cakera percuma (64 GB). Imej biasa memakai cakera 127 GB yang dicaj.
+   - **Size**: **Standard_B1s** (1 vCPU, 1 GiB).
+   - **Administrator account**: nama pengguna dan kata laluan awak sendiri. Simpan dalam password manager;
+     jangan tulis dalam repo atau chat.
+   - **Inbound ports**: Allow selected ports → **RDP (3389)**.
+   - Tab **Disks**: OS disk type **Premium SSD**, saiz 64 GiB atau kurang.
+   - Tab **Management**: pastikan **Auto-shutdown** **mati**. Jika hidup, VM tutup setiap malam dan EA berhenti.
+   - **Review + create → Create**. Tunggu beberapa minit.
+4. **Hadkan RDP kepada IP awak** (disyorkan):
+   - Buka VM → **Networking**.
+   - Pada peraturan RDP, tukar **Source** kepada **My IP address**.
+   - Tanpa langkah ini, sesiapa di internet boleh cuba meneka kata laluan VM.
+   - Jika IP rumah berubah, kemas kini peraturan ini.
+5. **Sambung**:
+   - Buka VM → **Connect → RDP → Download RDP file**.
+   - Buka fail itu dan masukkan kata laluan.
+   - Kemudian teruskan dari langkah 3 di bawah: salin zip, pasang MT5.
+
+Nota Azure:
+
+- Dengan RAM 1 GB, MT5 dengan dua carta berjalan, tetapi perlahan untuk dibuka.
+  - Tutup carta lain (EURUSD, GBPUSD dan sebagainya) di VPS.
+  - Jangan pasang app Claude di sini.
+- Selepas 12 bulan, VM mula dicaj. Begitu juga jika akaun ditukar ke pay-as-you-go. Padam resource group
+  `forexea` jika tidak mahu teruskan.
+
 ## 2. Sediakan pakej di laptop
 
 ```powershell
