@@ -1,7 +1,8 @@
 # Builds a zip with everything MT5 on a Windows VPS needs to run XauSignalEngine and XauScalper.
 # The zip holds the Supabase service key (aurum.env), so it is written outside the repo and must not be shared.
 # Usage: powershell -ExecutionPolicy Bypass -File tools\package_vps.ps1 [-Out <folder>]
-param([string]$Out = [Environment]::GetFolderPath('Desktop'))
+# Default is Downloads, not Desktop: this Desktop is synced to OneDrive and the zip holds the service key.
+param([string]$Out = (Join-Path $env:USERPROFILE 'Downloads'))
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
