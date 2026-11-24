@@ -22,8 +22,12 @@ $files = @(
     @{ From = "$repo\Include\XauRegime.mqh";         To = 'MQL5\Include\XauRegime.mqh' },
     @{ From = "$repo\Include\XauStats.mqh";          To = 'MQL5\Include\XauStats.mqh' },
     @{ From = "$mql\Files\aurum.env";                To = 'MQL5\Files\aurum.env' },
+    @{ From = "$mql\Profiles\Charts\Default\chart05.chr"; To = 'MQL5\Profiles\Charts\ForexEA\chart01.chr' },
+    @{ From = "$mql\Profiles\Charts\Default\chart06.chr"; To = 'MQL5\Profiles\Charts\ForexEA\chart02.chr' },
     @{ From = "$repo\docs\vps.md";                   To = 'BACA-SAYA-vps.md' }
 )
+# chart05 = XauSignalEngine on M15, chart06 = XauScalper on M5 (see docs/scalper.md); they become a separate
+# "ForexEA" profile on the VPS. Neither stores the service key (InpServiceKey is empty; the key is in aurum.env).
 foreach ($f in $files) {
     if (-not (Test-Path $f.From)) { throw "Missing $($f.From)" }
     $dest = Join-Path $stage $f.To
