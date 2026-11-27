@@ -1,0 +1,264 @@
+# Episode 2: Day 2
+**Series:** Zombie Outbreak: 30 Days Trapped in a Freezer Warehouse
+
+> Nombor dan masa ditulis dalam perkataan supaya suara AI membacanya dengan betul.
+
+---
+
+[SCENE: Inside the dark blue freezer, Cal sitting against a frosted pallet with cardboard taped around his legs, holding his breath with his gloved hand over his mouth, wide eyes fixed on LENA standing frozen three metres away, her head turned toward him]
+
+Last night ended with a frozen woman turning her head toward me. I'm still here. So is she.
+
+One forty-one A.M. I put my hand over my mouth and I stop breathing.
+
+Lena doesn't move. Her head stays turned toward me, frost thick on the back of her neck, wet on her cheek.
+
+I count to twenty. My lungs burn. I let the air out slowly, through my fingers, pointed at the floor.
+
+Nothing happens. I think nothing happens.
+
+[SCENE: Extreme close-up of Cal's black digital wristwatch on his frosted glove, the screen showing a new date and the time 1:42, ice crystals on the strap]
+
+My watch beeps once. New date. It rolled over at midnight while I was busy not dying.
+
+So this is day two. I clocked in yesterday.
+
+Here's what I've figured out. The cold stopped her. My heat is starting her again. Every breath I let out drifts toward her, and the side of her face that catches it is melting.
+
+She's not frozen. She's paused. And I'm the one pressing play.
+
+[SCENE: Cal crawling on his elbows down a narrow frosted aisle between towering pallets of frozen boxes, his breath clouding, LENA small and frozen in the background behind him, cold blue light]
+
+So I move. Slowly, on my elbows, down aisle six, away from her.
+
+Every metre I put between us, her frost stays white. I watch it like a fuel gauge.
+
+Twelve metres. Fifteen. I stop behind a pallet of frozen fries and press my back against it.
+
+From here I can't see her face. I decide that's better.
+
+[SCENE: Close-up of Cal touching the healed scar on his cheekbone with his gloved fingertips, frost in his stubble, a tired half-smile]
+
+My fingers find the old scar on my cheek. A box cutter, two jobs ago, a cardboard factory in the next county.
+
+Funny what you think about. I remember the foreman told me I was lucky. Two centimetres higher and I'd have lost the eye.
+
+Two centimetres. Everything tonight is about two centimetres.
+
+[SCENE: Close-up of the red cloth armband tied around Cal's left upper arm, stiff with frost, his gloved hand resting on it, the brown jacket sleeve dusted with ice]
+
+The red cloth on my arm is stiff with ice. It was my brother Danny's. He wore it on his wrist when he ran, every morning, for nine years.
+
+When he died, I tied it on my arm and never took it off. Not at the factory, not at the warehouse, not tonight.
+
+Danny would have known what to do in here. He was the one who read the survival books. I was the one who laughed at him for it.
+
+I'm not laughing now. I'm trying to remember what he used to tell me. Keep moving. Stay dry. Count everything.
+
+So I count. Fourteen aisles. One door. One frozen woman. Maybe forty minutes.
+
+[SCENE: Close-up of the orange-screened tactical radio in Cal's shaking hand, the orange display glowing in the blue darkness, his breath fogging over it]
+
+The radio clicks. Marco, whispering.
+
+"Cal. Still with us?"
+
+"Barely. Where's Dee?"
+
+A pause that's too long.
+
+"She's here. She's tired. She says she's fine."
+
+Then Dee's voice, slower than it was four hours ago. "Cal. Listen to me. There's another way out of that freezer."
+
+[SCENE: The mezzanine office at night, DEE sitting pale and sweating in an office chair, holding a radio to her mouth with her sleeve pulled down over her forearm, MARCO crouched beside her watching security monitors]
+
+"The forklift hatch," Dee says. "Back wall, end of aisle fourteen. A roller shutter into the chiller. You crank it by hand."
+
+"Where does that get me?"
+
+"The chiller's plus two. You won't freeze. Then out the chiller's side door, down the corridor, to the locker room. Freezer suits. Six of them."
+
+"Code?"
+
+"Four, one, one, nine."
+
+"Dee, what are they? What happened to Ray?"
+
+"I don't know. Twenty years in this building, I've seen a man lose three fingers to a conveyor and a driver have a heart attack on the dock. I've never seen anyone get back up."
+
+"They're slower in the cold."
+
+"Then stay cold as long as you can. And not one minute longer."
+
+Her breathing on the radio sounds wrong. Short. I don't ask about it. I should have asked about it.
+
+[SCENE: A heavy grey roller shutter set into the frosted back wall of the freezer, a manual crank handle on the side caked in thick ice, a yellow warning sign half buried in frost]
+
+Aisle fourteen. The shutter is there, exactly where she said, grey steel, two metres wide.
+
+The crank handle is wrapped in ice. I grab it and pull. Nothing. Frozen solid.
+
+I need heat. The only heat in this room is me.
+
+[SCENE: Cal cupping his gloved hands around the iced crank handle and breathing onto it, a thick cloud of warm breath melting the ice, water dripping]
+
+So I do the stupid thing. I wrap my hands around the handle and I breathe on it. Long, warm breaths.
+
+The ice softens. Drips. Cracks.
+
+Somewhere behind me, in aisle six, I hear the same sound. Crack.
+
+I keep breathing. I don't look back.
+
+[SCENE: Cal straining at the crank handle with both hands, the roller shutter lifted a few centimetres off the floor, a sliver of warmer yellow-green light spilling under it from the chiller beyond]
+
+The handle turns. One click. The shutter lifts a finger's width off the floor.
+
+Each turn is loud. Metal on metal, ringing through the freezer like a bell.
+
+Ten clicks. Twenty. Warm air leaks under the gap, plus two degrees, and it feels like summer.
+
+Thirty clicks. Sixty centimetres. Enough to crawl.
+
+[SCENE: View down a frosted freezer aisle, LENA now one step out of position, one foot lifted mid-step, frost cracking off her shoulders, her head turned toward the sound of the shutter]
+
+I look back down the aisle once. I shouldn't have.
+
+Lena has taken a step.
+
+One step. Her left foot hangs in the air, half lifted, like a paused video. Ice slides off her shoulders in sheets.
+
+The cranking made me warm. Working made me warm. I've been heating the room for her.
+
+I get on my belly and I go under the shutter.
+
+[SCENE: Cal sliding on his stomach under the half-raised roller shutter into the chiller room, the floor wet, rows of dairy racks with milk crates and vegetable boxes ahead, dim green-tinted light]
+
+The chiller. Plus two degrees. I can feel my face again, and it hurts.
+
+Racks of milk crates. Boxes of lettuce. Strip curtains at the far end, swaying.
+
+And voices. Not voices. That low, wet sound they make, like someone humming with their mouth full.
+
+I stay flat on the floor.
+
+[SCENE: Low angle from the chiller floor between two dairy racks, three of the turned (strangers in random clothes, NOT Dee or Marco) moving sluggishly near the strip curtains at the far end, as if walking through water]
+
+Three of them. Near the front curtain, the one that leads to the main floor.
+
+They're slow in here. Not frozen, but slow, like they're walking through syrup. Plus two degrees is enough to drag them down.
+
+It's not enough to stop them.
+
+I start doing the maths, because that's what I do. Minus twenty-two, they stop. Plus two, they crawl. Room temperature, they run. Which means the warmer I get, the faster everything in this building gets.
+
+And I am the warmest thing in this room.
+
+[SCENE: The mezzanine office, MARCO leaning close to a grainy black-and-white security monitor showing the chiller from above, whispering into a radio, his face lit by the screen]
+
+The radio clicks, so quietly I almost miss it. Marco.
+
+"I can see you. Camera four. Don't move."
+
+"Where's the side door?"
+
+"Your left, end of the rack. Twenty metres. But there's one right on the other side of the milk. Like, right there. Wait."
+
+So I wait, face against the wet floor, and listen to something breathe on the other side of a shelf of milk.
+
+[SCENE: Through a gap between stacked milk crates, a pale turned stranger in a red puffer jacket (NOT Marco), eyes white, inches from the crates, sniffing the air, while Cal lies perfectly still on the floor on the other side]
+
+Through the gap between two crates, I see a face. A guy in a red puffer jacket, maybe a delivery driver. Eyes like frosted glass.
+
+He's sniffing. Slowly. Side to side. The way Ray did on the stairs.
+
+He can't quite find me. The chiller cold is blurring me out, like fog on a heat camera.
+
+But he's getting closer to the gap.
+
+[SCENE: Close-up of a single milk carton tipping off the edge of a dairy rack, mid-fall, Cal's shoulder pressed against the bottom of the rack below it]
+
+Then my shoulder touches the bottom of the rack.
+
+Just touches it. A carton of milk on the top shelf wobbles. Tips.
+
+I watch it fall. It takes forever.
+
+It hits the floor and bursts. White milk spreads across the concrete toward my face.
+
+Every head in the chiller turns.
+
+[SCENE: Wide shot of the chiller, all four turned strangers (one in a red puffer jacket; Dee and Marco are NOT here) jerking their heads toward the spilled milk, Cal frozen on the floor with milk spreading near him]
+
+They come toward the sound. Slow, but they come.
+
+"Marco." I'm not whispering anymore. "Marco, do something."
+
+"Doing it. Cover your ears."
+
+[SCENE: The mezzanine office, MARCO slamming his palm onto a big red button on a wall panel beside the window, an alarm bell on the wall vibrating, DEE watching from her chair]
+
+Up in the office, Marco hits the dock bell.
+
+It's the bell they use to call drivers to the loading bays. It's loud. It's very loud. It rings across the whole warehouse like a school fire drill.
+
+[SCENE: The four turned strangers in the chiller turning away from Cal and shuffling toward the swaying strip curtains, heading out toward the ringing sound, Cal watching from the floor]
+
+Sound. Rule number two. They follow sound when there's no heat close enough to pull them.
+
+The puffer jacket guy is a metre from my head. He stops. He turns toward the bell.
+
+All four of them shuffle out through the strip curtain, toward the noise, toward the dock.
+
+I breathe for the first time in a minute.
+
+[SCENE: Cal running in a crouch along a dim narrow corridor with concrete walls and a single flickering tube light, a sign on the wall reading LOCKERS with an arrow, milk-soaked jacket]
+
+I go. Left, end of the rack, through the side door, into the corridor.
+
+It's warmer here. Room temperature. My hands start to burn as the feeling comes back, a thousand needles.
+
+Locker room, twenty metres. Ten. The bell is still ringing behind me.
+
+I pass the break room door. It's open. The grey blanket is on the floor where Ray dropped it. The chair is still pushed back. His cap is on the table, next to a coffee that's gone cold.
+
+Four hours ago he was a guy with a bandaged hand, laughing about Exit Nine.
+
+Then the bell stops.
+
+Marco on the radio. "Battery's dead on the bell. They're turning around. Cal, they're coming back your way. Slow, but they're coming."
+
+[SCENE: A grey steel door with a small rectangular window and a keypad lock beside it, a hand in a fingerless glove pressing the keypad, the keypad glowing green]
+
+The locker room door. Steel, with a small window and a keypad.
+
+Four. One. One. Nine.
+
+The light goes green. The lock clicks.
+
+I reach for the handle, and I stop.
+
+[SCENE: Extreme close-up of the small door window, fogged with condensation from the inside, a clear handprint smeared through the fog, darkness beyond]
+
+The window is fogged up.
+
+Not frost. Fog. Condensation, on the inside of the glass.
+
+Somebody has been breathing in there. Somebody warm.
+
+And as I watch, a hand presses against the glass from the other side, slowly, and wipes a clear stripe through the fog.
+
+[SCENE: Close-up of Cal's face reflected faintly in the door window, terrified, his hand frozen on the door handle, the orange radio glow on his chest]
+
+Behind me, down the corridor, I hear the chiller curtain swing. Then footsteps. Wet, slow, getting closer.
+
+In front of me, something on the other side of the glass is looking at me. I can't see its face. Just the hand, flat on the window, fingers spread.
+
+I check my watch. Two nineteen A.M.
+
+The way back is full of them. The way forward is a dark room with something warm inside.
+
+And the freezer suits are in there with it.
+
+*End of Episode 2.*

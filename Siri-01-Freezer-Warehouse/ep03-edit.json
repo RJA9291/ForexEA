@@ -1,0 +1,141 @@
+{
+  "audio_dir": "audio-ep03",
+  "image_dir": "images-ep03",
+  "parts_file": "Episode-03-Voiceover-Parts.txt",
+  "build_dir": "build-ep03",
+  "output": "TheLastShift-S01E03.mp4",
+  "part_gap": 1.2,
+  "end_title": "DAY 4",
+  "end_subtitle": "COMING SOON",
+  "end_card_seconds": 3.0,
+  "hum_amplitude": 0.04,
+  "burn_captions": true,
+  "scenes": [
+    {
+      "image": "scene01.png",
+      "part": 1,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene02.png",
+      "part": 2,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene03.png",
+      "part": 3,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene04.png",
+      "part": 4,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene05.png",
+      "part": 5,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene06.png",
+      "part": 6,
+      "hum": true,
+      "focus": []
+    },
+    {
+      "image": "scene07.png",
+      "part": 7,
+      "hum": true,
+      "focus": []
+    },
+    {
+      "image": "scene08.png",
+      "part": 8,
+      "hum": true,
+      "focus": []
+    },
+    {
+      "image": "scene09.png",
+      "part": 9,
+      "hum": true,
+      "focus": []
+    },
+    {
+      "image": "scene10.png",
+      "part": 10,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene11.png",
+      "part": 11,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene12.png",
+      "part": 12,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene13.png",
+      "part": 13,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene14.png",
+      "part": 14,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene15.png",
+      "part": 15,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene16.png",
+      "part": 16,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene17.png",
+      "part": 17,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene18.png",
+      "part": 18,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene19.png",
+      "part": 19,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene20.png",
+      "part": 20,
+      "hum": false,
+      "focus": []
+    },
+    {
+      "image": "scene21.png",
+      "part": 21,
+      "hum": false,
+      "focus": []
+    }
+  ]
+}

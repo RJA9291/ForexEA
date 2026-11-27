@@ -1,0 +1,31 @@
+# Engine self-test; uses studio/test-sandbox only.
+name: _test
+root: test-sandbox
+allow_multiple_per_day: true
+vars:
+  out: "item-{n2}.txt"
+init:
+  n: 1
+on_new_run:
+  increment:
+    n: 1
+steps:
+  - id: make
+    type: python
+    run: ["python", "-c", "open('{out}','w').write('hello {n}')"]
+    skip_if_exists: ["{out}"]
+  - id: check_one
+    type: check
+    files: ["{out}"]
+  - id: ask_claude
+    type: claude
+    instructions: "Write review-{n2}.txt containing 'ok'."
+    requires: ["review-{n2}.txt"]
+  - id: count
+    type: check
+    glob: "review-*.txt"
+    count_from_json: ["expect.json", "items"]
+    on_fail: ask_claude
+  - id: owner_ok
+    type: approval
+    instructions: "Approve item {n}?"

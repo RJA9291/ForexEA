@@ -1,0 +1,15 @@
+{
+  "workflow": "youtube-last-shift",
+  "ctx": {
+    "ep": 3,
+    "last_publish_date": "2026-11-28"
+  },
+  "step": 3,
+  "status": "waiting_claude",
+  "finished_on": null,
+  "log": [
+    "2026-11-27 21:41 [otak_skrip] skipped (outputs already exist)",
+    "2026-11-27 21:41 [make_parts] skipped (outputs already exist)",
+    "2026-11-27 21:41 [suara] skipped (outputs already exist)"
+  ]
+}

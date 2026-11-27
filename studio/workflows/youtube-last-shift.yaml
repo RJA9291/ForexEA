@@ -1,0 +1,92 @@
+# The Last Shift: one episode per run, one run per day.
+name: youtube-last-shift
+root: ..            # relative to studio/ -> the "Bisnes Youtube" folder
+
+vars:
+  series_dir: Siri-01-Freezer-Warehouse
+  series_episodes: 12
+  venv_py: tools/kokoro/.venv/Scripts/python.exe
+  script: "{series_dir}/Episode-{ep2}-Script.md"
+  parts: "{series_dir}/Episode-{ep2}-Voiceover-Parts.txt"
+  edit_json: "{series_dir}/ep{ep2}-edit.json"
+  audio_dir: "{series_dir}/audio-ep{ep2}"
+  image_dir: "{series_dir}/images-ep{ep2}"
+  thumbnail: "{series_dir}/Episode-{ep2}-Thumbnail.jpg"
+  upload_md: "{series_dir}/Episode-{ep2}-Upload.md"
+  video: "{series_dir}/TheLastShift-S01E{ep2}.mp4"
+  uplika_workspace: ws_33d015a752b561b5
+  uplika_youtube_account: conn_b65e570a44dbe045
+  playlist: "Zombie Outbreak: 30 Days Trapped in a Freezer Warehouse"
+
+init:
+  ep: 3
+  last_publish_date: "2026-11-28"
+
+on_new_run:
+  increment:
+    ep: 1
+
+steps:
+  - id: otak_skrip
+    type: claude
+    prompt: prompts/otak_skrip.md
+    skip_if_exists: ["{script}"]
+    requires: ["{script}"]
+
+  - id: make_parts
+    type: python
+    run: ["{venv_py}", "tools/make_parts.py", "{script}", "{ep}"]
+    skip_if_exists: ["{parts}", "{edit_json}"]
+
+  - id: suara
+    type: python
+    run: ["{venv_py}", "tools/kokoro/gen_episode.py", "{parts}", "{audio_dir}"]
+    skip_if_exists: ["{audio_dir}/full.wav"]
+
+  - id: gambar
+    type: claude
+    prompt: prompts/gambar.md
+    requires: ["{image_dir}/scene01.png"]
+
+  - id: semak_gambar
+    type: check
+    files: ["{edit_json}"]
+    glob: "{image_dir}/scene*.png"
+    count_from_json: ["{edit_json}", "scenes"]
+    on_fail: gambar
+
+  - id: thumbnail
+    type: claude
+    prompt: prompts/thumbnail.md
+    skip_if_exists: ["{thumbnail}"]
+    requires: ["{thumbnail}"]
+
+  - id: upload_pack
+    type: claude
+    prompt: prompts/upload_pack.md
+    skip_if_exists: ["{upload_md}"]
+    requires: ["{upload_md}"]
+
+  - id: compile
+    type: python
+    run: ["{venv_py}", "tools/build_episode.py", "{edit_json}"]
+    skip_if_exists: ["{video}"]
+
+  - id: compress
+    type: python
+    call: compress_if_large
+    args: {src: "{video}", max_mb: 250, crf: 23}
+
+  - id: lulus
+    type: approval
+    instructions: >-
+      Episode {ep} siap: {video}. Semak video, thumbnail ({thumbnail}) dan {upload_md}.
+      Balas "lulus" untuk upload (tayang {publish_date} 09:00 MYT), atau beritahu apa yang perlu dibaiki.
+
+  - id: upload
+    type: claude
+    prompt: prompts/upload.md
+
+  - id: playlist
+    type: claude
+    prompt: prompts/playlist.md

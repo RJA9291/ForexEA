@@ -1,0 +1,15 @@
+# Media is too large for GitHub; it stays in OneDrive only.
+*.mp4
+*.wav
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.srt
+*.ass
+build-*/
+tools/kokoro/.venv/
+tools/kokoro/models/
+studio/test-sandbox/
+__pycache__/
+.claude/settings.local.json
