@@ -1,12 +1,13 @@
 {
   "workflow": "youtube-last-shift",
   "ctx": {
-    "ep": 3,
-    "last_publish_date": "2026-11-28"
+    "ep": 4,
+    "last_publish_date": "2026-11-29",
+    "last_video_id": "K28hvgaZoAo"
   },
-  "step": 10,
-  "status": "waiting_claude",
-  "finished_on": null,
+  "step": 2,
+  "status": "running",
+  "finished_on": "2026-11-28",
   "log": [
     "2026-11-27 21:41 [otak_skrip] skipped (outputs already exist)",
     "2026-11-27 21:41 [make_parts] skipped (outputs already exist)",
@@ -24,6 +25,14 @@
     "2026-11-28 18:01 [compress] running",
     "2026-11-28 18:13 [compress] ok",
     "2026-11-28 18:13 [lulus] waiting for owner approval",
-    "2026-11-28 20:12 [lulus] approved by owner"
+    "2026-11-28 20:12 [lulus] approved by owner",
+    "2026-11-28 20:23 [upload] done {\"last_publish_date\": \"2026-11-29\", \"last_video_id\": \"K28hvgaZoAo\"}",
+    "2026-11-28 20:24 [playlist] done",
+    "2026-11-28 20:24 run finished",
+    "2026-11-28 20:24 new run started: {\"ep\": 4, \"last_publish_date\": \"2026-11-29\", \"last_video_id\": \"K28hvgaZoAo\"}",
+    "2026-11-28 20:24 started on owner request",
+    "2026-11-28 20:24 [otak_skrip] skipped (outputs already exist)",
+    "2026-11-28 20:24 [make_parts] skipped (outputs already exist)",
+    "2026-11-28 20:24 [suara] running"
   ]
 }
