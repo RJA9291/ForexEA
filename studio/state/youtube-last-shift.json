@@ -4,8 +4,8 @@
     "ep": 3,
     "last_publish_date": "2026-11-28"
   },
-  "step": 7,
-  "status": "running",
+  "step": 9,
+  "status": "waiting_approval",
   "finished_on": null,
   "log": [
     "2026-11-27 21:41 [otak_skrip] skipped (outputs already exist)",
@@ -19,6 +19,10 @@
     "2026-11-28 17:43 [thumbnail] done",
     "2026-11-28 17:43 [upload_pack] skipped (outputs already exist)",
     "2026-11-28 17:43 [compile] running",
-    "2026-11-28 17:43 [compile] running"
+    "2026-11-28 17:43 [compile] running",
+    "2026-11-28 18:01 [compile] ok",
+    "2026-11-28 18:01 [compress] running",
+    "2026-11-28 18:13 [compress] ok",
+    "2026-11-28 18:13 [lulus] waiting for owner approval"
   ]
 }
