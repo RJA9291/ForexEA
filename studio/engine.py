@@ -14,6 +14,7 @@ Usage (from anywhere):
   python studio/engine.py defer    <workflow> <step> <reason...>
   python studio/engine.py goto     <workflow> <step>
   python studio/engine.py new      <workflow> [--set key=value ...]
+  python studio/engine.py start-next <workflow>   (owner asked for the next run now)
 """
 import datetime as dt
 import glob as globmod
@@ -307,6 +308,17 @@ def cmd_new(name, sets):
     save_state(name, st)
 
 
+def cmd_start_next(name):
+    wf = load_workflow(name)
+    st = load_state(name, wf)
+    if st["status"] != "done":
+        step = wf["steps"][st["step"]]["id"] if st["step"] < len(wf["steps"]) else "-"
+        sys.exit(f"Current run is not finished (status={st['status']}, step={step}); finish it first.")
+    start_new_run(wf, st)
+    log(st, "started on owner request")
+    save_state(name, st)
+
+
 def cmd_status(name=None):
     names = [name] if name else sorted(p.stem for p in WORKFLOWS.glob("*.yaml") if not p.stem.startswith("_"))
     for n in names:
@@ -338,6 +350,8 @@ def main(argv):
         cmd_defer(rest[0], rest[1], " ".join(rest[2:]))
     elif cmd == "goto" and len(rest) == 2:
         cmd_goto(rest[0], rest[1])
+    elif cmd == "start-next" and len(rest) == 1:
+        cmd_start_next(rest[0])
     elif cmd == "new" and len(rest) == 1:
         cmd_new(rest[0], parse_sets(sets))
     else:

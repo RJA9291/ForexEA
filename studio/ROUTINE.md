@@ -26,6 +26,11 @@ Pemilik mahu ditanya secara proaktif (2026-11-28), bukan menunggu mereka bertany
   `deferred: PEMILIK:` kurang dari 3 jam lalu, berhenti senyap (jangan ganggu pemilik berulang kali);
   jika lebih 3 jam, tanya sekali lagi. Jika tiada apa-apa untuk dibuat, berhenti senyap tanpa notifikasi.
 
+## Atas permintaan pemilik
+Jika pemilik minta episod seterusnya sekarang ("proceed ep4"): siapkan run semasa dahulu, kemudian
+`python studio/engine.py start-next <workflow>` dan jalankan kitaran seperti biasa. Tanpa permintaan, ikut jadual
+(satu run baru sehari). Tarikh tayang sentiasa beratur: hari selepas `last_publish_date`.
+
 ## Peraturan
 - Jangan upload atau terbitkan apa-apa sebelum langkah `approval` diluluskan oleh pemilik sendiri dalam chat.
 - Muat turun fail perlukan kebenaran pemilik (sekali bagi setiap kumpulan gambar episod).
