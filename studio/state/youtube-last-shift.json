@@ -5,8 +5,8 @@
     "last_publish_date": "2026-11-29",
     "last_video_id": "K28hvgaZoAo"
   },
-  "step": 7,
-  "status": "running",
+  "step": 9,
+  "status": "waiting_approval",
   "finished_on": "2026-11-28",
   "log": [
     "2026-11-27 21:41 [otak_skrip] skipped (outputs already exist)",
@@ -40,6 +40,10 @@
     "2026-11-28 21:07 [semak_gambar] ok",
     "2026-11-28 21:07 [thumbnail] skipped (outputs already exist)",
     "2026-11-28 21:07 [upload_pack] done",
-    "2026-11-28 21:07 [compile] running"
+    "2026-11-28 21:07 [compile] running",
+    "2026-11-28 21:18 [compile] ok",
+    "2026-11-28 21:18 [compress] running",
+    "2026-11-28 21:24 [compress] ok",
+    "2026-11-28 21:24 [lulus] waiting for owner approval"
   ]
 }
