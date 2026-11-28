@@ -119,6 +119,10 @@ def all_exist(wf, paths):
 def run_python(wf, step, c, st):
     if "run" in step:
         cmd = render(step["run"], c)
+        # Windows CreateProcess cannot launch a relative exe path written with forward slashes
+        exe = abspath(wf, cmd[0])
+        if exe.exists():
+            cmd = [str(exe)] + list(cmd[1:])
         print(f"  $ {' '.join(cmd)}")
         r = subprocess.run(cmd, cwd=wf["root_path"], text=True, encoding="utf-8", errors="replace",
                            capture_output=True)

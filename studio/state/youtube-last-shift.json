@@ -4,14 +4,21 @@
     "ep": 3,
     "last_publish_date": "2026-11-28"
   },
-  "step": 3,
-  "status": "waiting_claude",
+  "step": 7,
+  "status": "running",
   "finished_on": null,
   "log": [
     "2026-11-27 21:41 [otak_skrip] skipped (outputs already exist)",
     "2026-11-27 21:41 [make_parts] skipped (outputs already exist)",
     "2026-11-27 21:41 [suara] skipped (outputs already exist)",
     "2026-11-28 16:57 [gambar] deferred: menunggu kebenaran pemilik untuk muat turun 21 gambar dari chatgpt.com",
-    "2026-11-28 16:59 [gambar] deferred: ChatGPT belum login"
+    "2026-11-28 16:59 [gambar] deferred: ChatGPT belum login",
+    "2026-11-28 17:41 [gambar] done",
+    "2026-11-28 17:41 [semak_gambar] running",
+    "2026-11-28 17:41 [semak_gambar] ok",
+    "2026-11-28 17:43 [thumbnail] done",
+    "2026-11-28 17:43 [upload_pack] skipped (outputs already exist)",
+    "2026-11-28 17:43 [compile] running",
+    "2026-11-28 17:43 [compile] running"
   ]
 }
